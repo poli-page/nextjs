@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install
+          else
+            echo "No package.json yet — skipping install"
+          fi
+
+      - name: Lint
+        run: |
+          if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.lint ? 0 : 1)" 2>/dev/null; then
+            npm run lint
+          else
+            echo "No lint script yet — skipping"
+          fi
+
+      - name: Typecheck
+        run: |
+          if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.typecheck ? 0 : 1)" 2>/dev/null; then
+            npm run typecheck
+          else
+            echo "No typecheck script yet — skipping"
+          fi
+
+      - name: Test
+        run: |
+          if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.test ? 0 : 1)" 2>/dev/null; then
+            npm test
+          else
+            echo "No test script yet — skipping"
+          fi
