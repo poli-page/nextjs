@@ -1,164 +1,164 @@
 # CLAUDE.md
 
-> Instructions for Claude Code agents working in this repository.
+> Instructions for Claude Code agents working in `poli-page/nextjs`.
 
 ## 1. Repo at a glance
 
 | Field        | Value |
 | ------------ | ----- |
 | Repository   | `poli-page/nextjs` |
-| Type         | Framework integration (Next.js) |
-| Language     | Node (TypeScript) |
+| Type         | Framework integration (Next.js App Router) |
+| Language     | TypeScript (ES2022, strict) |
+| Node         | `>=18.18.0` |
+| Next.js      | `>=13.4.0`; CI matrix covers `^14` and `^15` |
 | Registry     | npm — `@poli-page/nextjs` |
-| Depends on   | @poli-page/sdk (npm) |
+| Depends on   | `@poli-page/sdk` (npm, `^1.0.0`) |
 | Roadmap slot | P0.2 |
 
-The full roadmap, the public API contract, and the reasoning behind the multi-repo split live in the platform repo (`poli-page/poli-page`) under `docs/onboarding/micka/`. Xavier will share the briefings with you. Read them before starting on a new repo:
+**Source-of-truth docs (read first):**
+- `docs/spec/nextjs-implementation.md` — full design spec for v0.1.0
+- `docs/plan/YYYY-MM-DD-implementation.md` — implementation plan
+- `/Users/mickael/Projects/INTEGRATIONS_PLAN.md` — cross-repo umbrella note, esp. §"Cross-cutting DX patterns"
+- `/Users/mickael/Projects/symfony-bundle/CLAUDE.md` §10 "Known gotchas" — five battle-tested lessons; most carry over
 
-- `agent-guide.md` — the master version of this file. If you want to update conventions, change it there first; this file is its inlined derivative.
-- `project-briefing.md` — what Poli Page is, develop credentials, expected repo layout.
-- `sdk-specification.md` — the API contract every SDK must implement.
-- `sdk-roadmap.md` — what to build, in which order, why.
+## 2. The package's job
 
----
+This package is a **thin App-Router-flavored wrapper** around the official Poli Page Node SDK (`@poli-page/sdk`, source at `/Users/mickael/Projects/sdk-node/`). It provides:
 
-## 2. Working language
+- `createPoliPageClient()` — memoised client factory reading from `process.env`
+- `createPoliPageRouteHandler()` — produces an App Router `GET`/`POST` handler with correct headers, error→Response mapping, and streaming support
+- Response helpers: `pdfResponse()`, `previewResponse()`, `documentRedirectResponse()`
+- First-class Edge runtime support (no Node-only APIs anywhere in `src/`)
+- A small example app at `example-app/` mirroring the symfony-bundle's interactive demo UI
+
+**This package does NOT** reimplement HTTP transport, retries, error classification, idempotency keys, stream chunking, or anything else the SDK already does. Bug in those areas? Fix it in `sdk-node`, not here.
+
+**This package does NOT** ship: a Pages Router compatibility layer, a `<PoliPagePDF />` React component, a `next.config.js` plugin, or a CLI. See `docs/spec/nextjs-implementation.md` §1 for the explicit "isn't" list.
+
+## 3. Working language
 
 - **Code, comments, file names, commit messages, PR descriptions, repository documentation**: English.
-- **Day-to-day conversation with Xavier**: French, tutoiement.
-- **Conversation in this Claude Code session**: French is fine for the chat; the artifacts you produce (code, commits, READMEs) stay English.
+- **Day-to-day conversation with Xavier/Mickael**: French, tutoiement.
+- **Conversation in this Claude Code session**: French is fine for the chat; artifacts stay English.
 
----
+## 4. TDD is mandatory
 
-## 3. Test-Driven Development is mandatory
+RED → GREEN → refactor for every change. Tests live in `tests/unit/` (mocked SDK, 90%+ of the suite) and `tests/integration/` (one against the develop API, gated on `POLI_PAGE_API_KEY`; runs in both Node and Edge runtimes).
 
-TDD is the working method, not a "nice to have". The cycle is **RED → GREEN → refactor**:
+### What to test (integration-specific!)
 
-1. **RED** — write the smallest possible failing test that captures the next bit of behavior.
-2. **GREEN** — write the minimum code to make that test pass. No speculative generality, no extra branches.
-3. **Refactor** — clean up the just-written code (or the call site) while the test stays green.
+- **Client factory**: env reading, missing-key throws, bad-prefix throws (`pp_test_*` / `pp_live_*` only), memoisation returns the same instance across no-arg calls, explicit options bypass the memo.
+- **Route handler factory**: each result `kind` (`pdf` / `stream` / `preview` / `redirect` / bare `Uint8Array` / `Response`) produces a `Response` with the documented headers; `PoliPageError` throws map to typed JSON responses; non-`PoliPageError` throws bubble.
+- **Response helpers**: every method sets the right `Content-Type`, RFC 5987 `Content-Disposition`, `Cache-Control`, `X-Content-Type-Options`. ASCII AND non-ASCII filenames both encode correctly. The bundle's `PoliPageResponseFactory` tests are the canonical reference — port them.
+- **Edge runtime**: one integration test imports every public export under `@edge-runtime/vm` and exercises them with a mock SDK. Asserts no `Buffer`, `process.nextTick`, `node:*` use.
+- **Error mapping**: `PoliPageError(status=4xx)` → 4xx JSON; `PoliPageError(status=5xx)` → 5xx JSON; network/timeout → 502 with `code: 'NETWORK_ERROR'`.
 
-Every pull request lands as a sequence of these cycles, never as a "I wrote it all then added tests".
+### What NOT to test (the SDK already does)
 
-### What to test
+- HTTP transport behavior (Undici, fetch edge cases, connection pooling)
+- Retry policy (backoff, max attempts, `Retry-After`, never-retry-4xx)
+- 4xx / 5xx → `PoliPageError` mapping inside the SDK
+- Idempotency-Key generation
+- Stream chunking correctness
+- API contract drift — the SDK's contract tests own that
 
-- **Every public method** of the client class.
-- **Every error path** — 4xx mapping, 5xx retry behaviour, network failure, timeout, malformed JSON.
-- **Every retry edge case** — exponential backoff, max attempts, never retrying 4xx, honouring `Retry-After`.
-- **Every input variant** — stored project (`project + template + version`) vs inline HTML (`template`), each rendering endpoint (PDF, preview, thumbnails).
+Re-testing these here doubles maintenance burden. **If you find yourself writing a mock HTTP server, stop — you're doing the SDK's job.**
 
-### What NOT to over-test
+## 5. Robustness over shortcuts
 
-- Don't test the language standard library or the HTTP client library — assume they work.
-- Don't test private helpers in isolation if they're already exercised by a public-method test.
-- Don't write tests that snapshot massive objects when an assertion on the field that matters would be clearer.
+Mickael's hard rule (validated in the symfony-bundle session): **no hacks to make a test pass or a corner case go away**. Fix root causes. If a workaround is genuinely required (framework bug, SDK quirk), document it inline with a `// Why:` comment naming the constraint.
 
-### Test layout
+Concretely: don't disable strict ESLint/TypeScript rules, don't suppress Vitest risky-test warnings, don't `// @ts-expect-error` away type errors, don't widen types to silence them. The symfony-bundle's `tests/RestoresGlobalHandlers.php` trait is the reference for fixing test-runner strictness the right way.
 
-- Tests live in `tests/` (or the language's idiomatic location for this repo — see section 7).
-- One test file per source file, mirroring the structure (`src/client.<ext>` → matching test file).
-- Group integration tests under `tests/integration/` so they're runnable separately from the unit suite.
-- **Unit tests** mock the HTTP transport, assert request shape and response handling. These are 90 %+ of the suite.
-- **Integration tests** hit the real develop API with a `pp_test_*` key from `POLI_PAGE_API_KEY`. Render a known template, verify the PDF is non-empty and `Content-Type: application/pdf`. Keep them few and idempotent.
+## 6. Code conventions
 
----
+- **TypeScript strict mode** + `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`. Configured in `tsconfig.json`.
+- **ESLint flat config** matching `sdk-node`'s. The `no-restricted-imports` rule in `src/` blocks `node:*`, `fs`, `path`, `Buffer`, `stream` — anything that breaks Edge.
+- **No commented-out code, no TODO without a linked issue, no debug prints.**
+- **Default to no comments.** Add one only when the *why* is non-obvious. Comments restating *what* the code does are noise.
+- **No default exports.** Named exports only.
+- Public functions use `export function ...` (not `export const ... = () => ...`) so they appear nicely in stack traces and TypeScript intellisense.
 
-## 4. Robustness over shortcuts
+## 7. Commits and PRs
 
-Xavier's hard rule: **no hacks to make a test pass or a corner case go away.** If something is broken, fix the underlying cause. If a workaround is genuinely required (a third-party bug, an API quirk), document it inline with a one-line comment starting with `Why:` that explains the constraint — not the symptom.
+- **Conventional Commits**: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
+- **One concern per PR**, reviewable in under 30 minutes.
+- PR description: what changed, why, how it was tested.
+- CI must be green before merge.
 
-Concrete corollaries:
-- Don't catch and swallow errors to silence a test.
-- Don't add test-environment branches in production code.
-- Don't add fallbacks for cases that can't happen — trust internal code and framework guarantees.
-- Validate at boundaries (user input, external APIs), not at every internal layer.
+## 8. CI
 
----
+Workflow: `.github/workflows/ci.yml`. Matrix: Node `18`/`20`/`22` × Next.js `14`/`15`. Each step auto-skips if the relevant config is missing (so a freshly scaffolded repo is green from day one).
 
-## 5. Code conventions
+Local mirror:
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm test          # Vitest, both node and edge runtime projects
+npm run build     # tsup; verify dist/ shape
+```
 
-- **Style**: follow the dominant style guide of the language. Pin the formatter and linter major version in the manifest so contributors and CI agree.
-- **No commented-out code.** Delete it; git remembers.
-- **No `TODO` without a linked GitHub issue** — `// TODO(#42): refactor` is fine, `// TODO: refactor` is not.
-- **No debug prints** in committed code.
-- **Default to no comments.** Identifiers and short functions should explain themselves. Add a comment only when the *why* is non-obvious — a hidden constraint, a workaround, a surprising invariant. Comments that just restate what the code already says are noise.
+## 9. Unpublished-SDK / workspace note
 
----
+`@poli-page/sdk` is **already published** on npm (`^1.0.0`), so for normal dev you just `npm install`. When testing against unreleased SDK changes, use either:
 
-## 6. Commits and Pull Requests
+1. **npm workspaces** — declare `sdk-node` and `nextjs` as workspaces under a root `package.json` at `/Users/mickael/Projects/`. `npm install` resolves to the local checkout; nothing changes in this repo's manifest.
+2. **`npm link`** (fallback when the workspace root isn't set up):
+   ```bash
+   cd /Users/mickael/Projects/sdk-node && npm link
+   cd /Users/mickael/Projects/nextjs    && npm link @poli-page/sdk
+   ```
 
-- **Conventional Commits** for every commit:
-  - `feat:` new behaviour visible to users.
-  - `fix:` bug fix (link an issue when it exists).
-  - `docs:` documentation only.
-  - `refactor:` no behaviour change, no test change.
-  - `test:` only adds/changes tests.
-  - `chore:` build, deps, tooling.
-- **One concern per PR.** A reviewer should be able to land it in under 30 minutes.
-- **PR description** includes: what changed, why, how it was tested. Link issues; mention any follow-ups deliberately deferred.
-- **CI must be green** before merge.
+Either way, the integration's published `package.json` stays clean (`"@poli-page/sdk": "^1.0.0"`).
 
----
+## 10. Known gotchas (battle-tested — don't relearn the hard way)
 
-## 7. Continuous Integration
+These caught us once in `symfony-bundle` or surface from Next.js / Vitest specifics. Recorded so future agents don't burn a session rediscovering them.
 
-The workflow lives at `.github/workflows/ci.yml`. The contract is identical across all 10 SDK repos:
+### 10.1 Vitest `process` listener leaks
 
-- **Triggers**: every `push` (any branch) and every `pull_request` targeting `main`.
-- **Matrix**: Node 20 / 22 / 24.
-- **Jobs**: a single `test` job doing *Install → Lint → Test* in order.
-- **Auto-skip is built in**: each step short-circuits with a friendly message when the relevant manifest, lint config, or test directory does not yet exist. This means a freshly scaffolded repo has a green pipeline from day one, and the pipeline starts running real work as soon as you add the manifest, lint config, and tests.
+Strict Vitest configs (and our `tests/setup.ts`) flag tests that leave dangling `process.on('unhandledRejection')` or `process.on('uncaughtException')` listeners. Next's runtime instrumentation can register these.
 
-When working in this repo with Claude Code:
-- After adding the manifest (`package.json`), the install step lights up.
-- After adding a lint config (`ESLint + Prettier`), the lint step lights up.
-- After adding the first test in `tests/`, the test step lights up.
+**Fix in place** (carry from symfony-bundle's `RestoresGlobalHandlers` trait, adapted): `tests/setup.ts` snapshots `process.listeners('unhandledRejection')` and `process.listeners('uncaughtException')` at file load, and re-applies that snapshot in `afterEach`. Apply to any test file that loads code which registers process listeners.
 
-If you change the workflow, the change MUST stay compatible with this auto-skip behaviour — never make CI fail because of "missing setup".
+**Do NOT** disable the check globally. Same rule as symfony-bundle §10.1.
 
----
+### 10.2 Nothing in `src/` may import Node-only APIs
 
-## 8. Per-language specifics for this repo
+`src/` runs on both Node and Edge runtimes. Edge has no `Buffer`, no `node:fs`, no `node:stream`, no `process.nextTick`. The ESLint `no-restricted-imports` rule blocks them at lint time, and one Edge integration test catches anything that slips through.
 
-- **Test framework**: Vitest
-- **Lint / format**: ESLint + Prettier
-- **Manifest file**: `package.json`
-- **Run tests locally**: `npm test`
-- **Run lint locally**: `npm run lint`
+**Allowed:** `globalThis.fetch`, `Request`, `Response`, `Headers`, `URL`, `ReadableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`, `crypto.subtle`.
 
----
+**Not allowed in `src/`** (lint-blocked): `Buffer`, `node:*`, `fs`, `path`, `process.nextTick`, anything from `stream` (the Node module — Web Streams are fine), `child_process`, `cluster`, `os`.
 
-## 9. End-to-end "ship a feature" walk-through
+Test code (`tests/`) can use Node APIs freely — only `src/` is constrained.
 
-This is what a single working day looks like:
+### 10.3 `createPoliPageClient()` memo is per-runtime, not per-process
 
-1. **Pick** the next sliver from `sdk-specification.md` (or the open issue you're assigned to).
-2. **Branch** from `main`: `git switch -c feat/<short-description>`.
-3. **RED**: write one failing test that captures the slice. Run the suite — it fails on this test only.
-4. **GREEN**: write the minimum code to pass. Run the suite — green.
-5. **Refactor**: clean up. Suite stays green.
-6. Repeat 3–5 for the next sliver of behaviour.
-7. **Commit** with a Conventional Commits message.
-8. **Push**. CI runs.
-9. **Open a PR** with a clear description.
-10. **Merge** when green and approved.
+On Edge, each isolate is potentially a fresh module load, so the memo is effectively per-isolate (not per-process). Cold-start cost is one factory call per isolate. Document this in the README; do NOT try to "fix" it by reaching for a global cache — that's not portable across Edge providers.
 
-If a step takes more than half a day without a test going green, stop and talk to Xavier — the slice is probably too big.
+### 10.4 Only `PoliPageError` gets mapped to a `Response`
 
----
+`createPoliPageRouteHandler()` catches `PoliPageError` and turns it into a typed JSON response. **Any other throw bubbles up** to Next's `error.tsx` boundary unchanged. This is intentional — generic exception swallowing destroys observability.
 
-## 10. Adding a new dependency
+If a user wants custom mapping for their own errors, they pass `options.onError`. Documented behavior, don't expand the catch scope.
 
-- Justify it. "We could write this in 20 lines" usually means we should write it in 20 lines.
-- Pin the version (caret OK in Node, exact otherwise unless ecosystem convention says otherwise).
-- Run the test suite before committing the lockfile change.
-- Mention the new dependency and its purpose in the commit message.
+### 10.5 Single root `.env`, no per-app `.env.local`
 
----
+Both `tests/setup.ts` and `example-app/next.config.ts` read the bundle/workspace root `.env`. Real env vars (shell exports) still win.
+
+**Do NOT** introduce a `.env.local` in `example-app/` or instruct users to `cp .env .env.local`. This was an explicit hard requirement from Mickael during the symfony-bundle session. See `INTEGRATIONS_PLAN.md` §"Cross-cutting DX patterns" §2.
+
+### 10.6 No CLI / artisan equivalent
+
+Next.js has no per-app command-line entry point we can attach to (the `next` CLI is the framework's own; the example app's `npm run dev` IS the smoke test). The SDK demo step 3 (`renderToFile`) becomes a standalone Node script in `example-app/scripts/render-to-file.ts`, not a route. Don't try to invent a CLI here.
 
 ## 11. When stuck
 
-- Re-read `sdk-specification.md` — many "open questions" are already answered there.
-- Compare with the Node SDK reference implementation: `github.com/poli-page/sdk-node` (npm: `@poli-page/sdk`).
-- Ask Xavier early. A two-line message is faster than half a day rebuilding the wrong thing.
-- If a CI failure looks unrelated to your change, look for the same failure on `main` first before assuming you caused it.
+- Re-read `docs/spec/nextjs-implementation.md` first; most "open questions" are answered there or in §18 "Resolved decisions".
+- Compare with `sdk-node` at `/Users/mickael/Projects/sdk-node/`.
+- Compare with the symfony-bundle at `/Users/mickael/Projects/symfony-bundle/` — same product, different framework, decisions you can copy directly.
+- Look at industry benchmarks: Vercel's own SDK helpers (route handlers + middleware), `@clerk/nextjs` (auth integration), `@vercel/blob` (storage integration), `next-auth` (session integration). The bar.
+- Ask Mickael early. A two-line message is faster than a half-day rebuilding the wrong thing.
+- If a CI failure looks unrelated to your change, check `main` first before assuming you caused it.
