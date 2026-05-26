@@ -2,13 +2,13 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    setupFiles: ['./tests/setup.ts'],
     projects: [
       {
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
+          setupFiles: ['./tests/setup.ts'],
         },
       },
       {
@@ -16,6 +16,7 @@ export default defineConfig({
           name: 'integration-node',
           include: ['tests/integration/**/*.node.test.ts'],
           environment: 'node',
+          setupFiles: ['./tests/setup.ts'],
         },
       },
       {
