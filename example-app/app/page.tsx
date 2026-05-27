@@ -124,17 +124,15 @@ export default function DemoPage(): JSX.Element {
 
   const onDocGet = useCallback(() => {
     return runAction('doc-get', 'r2', true, async set => {
-      const r = await fetch(`/documents/${docId}`, { redirect: 'follow' })
-      if (!r.ok) {
-        set({ status: 'error', label: 'output', meta: `HTTP ${r.status}`, content: { kind: 'pre', text: await r.text() } })
-        return
-      }
-      const blob = await r.blob()
+      // Why: /documents/{id} returns a 302 to a presigned S3 URL on a
+      // different origin. fetch() with redirect:'follow' produces an
+      // opaque cross-origin response and the body is unreadable. Iframe
+      // navigation isn't a fetch — the browser follows the 302 natively.
       set({
         status: 'ok',
         label: 'stored pdf',
-        meta: `${blob.size.toLocaleString()} bytes`,
-        content: { kind: 'iframe', src: URL.createObjectURL(blob) },
+        meta: 'served via 302 → presigned S3 URL',
+        content: { kind: 'iframe', src: `/documents/${docId}` },
       })
     })
   }, [docId, runAction])
