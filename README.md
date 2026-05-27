@@ -1,6 +1,5 @@
 # @poli-page/nextjs
 
-[![CI](https://github.com/poli-page/nextjs/actions/workflows/ci.yml/badge.svg)](https://github.com/poli-page/nextjs/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40poli-page%2Fnextjs.svg)](https://www.npmjs.com/package/@poli-page/nextjs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -12,7 +11,7 @@ The official Next.js App Router integration for [Poli Page](https://poli.page) �
 npm install @poli-page/nextjs @poli-page/sdk
 ```
 
-Set your API key:
+Set your API key — grab one from the [Poli Page dashboard](https://docs.poli.page):
 
 ```bash
 # .env (Next.js loads this automatically)
@@ -21,22 +20,24 @@ POLI_PAGE_API_KEY=pp_test_…
 
 ## Quick start
 
-`app/invoice/[id]/route.ts`:
+`app/welcome/[name]/route.ts`:
 
 ```ts
 import { createPoliPageRouteHandler } from '@poli-page/nextjs'
 
-export const GET = createPoliPageRouteHandler<{ id: string }>(async ({ client, params }) => ({
+export const GET = createPoliPageRouteHandler<{ name: string }>(async ({ client, params }) => ({
   kind: 'pdf',
   bytes: await client.render.pdf({
-    project: 'billing',
-    template: 'invoice',
+    project: 'getting-started',
+    template: 'welcome',
     version: '1.0.0',
-    data: { invoiceId: params.id },
+    data: { name: params.name },
   }),
-  filename: `invoice-${params.id}.pdf`,
+  filename: `welcome-${params.name}.pdf`,
 }))
 ```
+
+`GET /welcome/world` returns a PDF using the public `getting-started/welcome` template — swap in your own `project` / `template` slugs when you're ready.
 
 That's the whole handler. The factory takes care of the default `Cache-Control: no-store, private`, the `Content-Disposition` (with non-ASCII filenames RFC 5987-encoded), `nosniff`, and maps any thrown `PoliPageError` to a typed JSON response.
 
@@ -92,7 +93,7 @@ Opt in by adding one line to your route file:
 export const runtime = 'edge'
 
 export const GET = createPoliPageRouteHandler(async ({ client }) =>
-  client.render.pdfStream({ project: 'billing', template: 'invoice', version: '1.0.0', data: {} }),
+  client.render.pdfStream({ project: 'getting-started', template: 'welcome', version: '1.0.0', data: { name: 'World' } }),
 )
 ```
 
@@ -106,9 +107,9 @@ Every export touches only Web standards: `fetch`, `Request`, `Response`, `Header
 export const GET = createPoliPageRouteHandler(async ({ client }) => ({
   kind: 'stream',
   stream: await client.render.pdfStream({
-    project: 'billing', template: 'invoice', version: '1.0.0', data: { … },
+    project: 'getting-started', template: 'welcome', version: '1.0.0', data: { name: 'World' },
   }),
-  filename: 'invoice.pdf',
+  filename: 'welcome.pdf',
   inline: true,
 }))
 ```
@@ -124,7 +125,7 @@ import { createPoliPageClient } from '@poli-page/nextjs'
 
 export default async function Page() {
   const client = createPoliPageClient()
-  const bytes  = await client.render.pdf({ project: 'billing', template: 'invoice', version: '1.0.0', data: {} })
+  const bytes  = await client.render.pdf({ project: 'getting-started', template: 'welcome', version: '1.0.0', data: { name: 'World' } })
   const b64    = Buffer.from(bytes).toString('base64')  // server-only; not inside @poli-page/nextjs/src
   return <iframe src={`data:application/pdf;base64,${b64}`} style={{ width: '100%', height: '90vh' }} />
 }
