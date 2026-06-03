@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
 
-type PanelId = 'r1' | 'r2' | 'r3'
+type PanelId = 'r1' | 'r2' | 'r3' | 'r4'
 type PaneContent =
   | { kind: 'empty'; text: string }
   | { kind: 'iframe'; src: string; srcDoc?: never }
@@ -20,7 +20,8 @@ interface PanelState {
 const initialPanels: Record<PanelId, PanelState> = {
   r1: { status: 'idle', label: 'output', meta: 'idle', content: { kind: 'empty', text: 'Press a button to render.' } },
   r2: { status: 'idle', label: 'output', meta: 'idle', content: { kind: 'empty', text: 'Store a document to begin.' } },
-  r3: { status: 'idle', label: 'output', meta: 'idle', content: { kind: 'empty', text: 'Press the button to see the error payload.' } },
+  r3: { status: 'idle', label: 'output', meta: 'idle', content: { kind: 'empty', text: 'Press the button to stream a PDF to disk.' } },
+  r4: { status: 'idle', label: 'output', meta: 'idle', content: { kind: 'empty', text: 'Press the button to see the error payload.' } },
 }
 
 const prettyJson = (raw: string): string => {
@@ -181,8 +182,21 @@ export default function DemoPage(): JSX.Element {
     })
   }, [docId, runAction])
 
+  const onRenderFile = useCallback(() => {
+    return runAction('render-file', 'r3', false, async set => {
+      const r = await fetch('/render/file', { method: 'POST' })
+      const body = await r.text()
+      set({
+        status: r.ok ? 'ok' : 'error',
+        label: 'wrote to disk',
+        meta: `${r.status} ${r.ok ? 'ok' : 'error'}`,
+        content: { kind: 'pre', text: prettyJson(body) },
+      })
+    })
+  }, [runAction])
+
   const onBadVersion = useCallback(() => {
-    return runAction('bad-version', 'r3', false, async set => {
+    return runAction('bad-version', 'r4', false, async set => {
       const r = await fetch('/errors/bad-version')
       const body = await r.text()
       set({
@@ -247,19 +261,30 @@ export default function DemoPage(): JSX.Element {
         </Section>
 
         <Section
-          title="Error handling"
-          label="03 · typed exceptions"
-          desc={<>Sends a deliberately malformed version string to trigger <code>INVALID_VERSION_FORMAT</code>. The integration's typed error mapping propagates the API code, message, and request-id straight through.</>}
+          title="Filesystem"
+          label="03 · render to disk"
+          desc={<>The SDK&apos;s <code>renderToFile()</code> helper (from <code>@poli-page/sdk/node</code>) streams the PDF straight to disk under <code>example-app/output/welcome.pdf</code> — memory-bounded regardless of size.</>}
         >
           <div className="actions">
-            <ActionButton action="bad-version" loading={loading} onClick={onBadVersion}>Trigger 400</ActionButton>
+            <ActionButton action="render-file" loading={loading} onClick={onRenderFile}>Render to file</ActionButton>
           </div>
           <ResultPane state={panels.r3} />
         </Section>
 
         <Section
+          title="Error handling"
+          label="04 · typed exceptions"
+          desc={<>Sends a deliberately malformed version string to trigger <code>INVALID_VERSION_FORMAT</code>. The integration&apos;s typed error mapping propagates the API code, message, and request-id straight through.</>}
+        >
+          <div className="actions">
+            <ActionButton action="bad-version" loading={loading} onClick={onBadVersion}>Trigger 400</ActionButton>
+          </div>
+          <ResultPane state={panels.r4} />
+        </Section>
+
+        <Section
           title="Command line"
-          label="04 · console"
+          label="05 · CLI"
           desc={<>The integration ships one standalone Node script for offline rendering, plus the standard HTTP smoke. Copy and run alongside this server.</>}
         >
           <CliBlock cmd="npm run render-to-file" slot="cli-1" copied={copied === 'cli-1'} onCopy={() => copy('npm run render-to-file', 'cli-1')} />
@@ -457,6 +482,7 @@ section:nth-of-type(1) { animation-delay: 0.05s; border-top: none; padding-top: 
 section:nth-of-type(2) { animation-delay: 0.12s; }
 section:nth-of-type(3) { animation-delay: 0.19s; }
 section:nth-of-type(4) { animation-delay: 0.26s; }
+section:nth-of-type(5) { animation-delay: 0.33s; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
