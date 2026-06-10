@@ -225,8 +225,6 @@ export default function DemoPage(): JSX.Element {
           <p className="tagline">Your Next.js integration, your dashboard. Every SDK feature, one click away.</p>
           <div className="status-row">
             <span className="dot"></span>
-            <span>api-develop.poli.page</span>
-            <span className="sep">·</span>
             <span>poli-page/nextjs v0.1.0</span>
           </div>
         </header>

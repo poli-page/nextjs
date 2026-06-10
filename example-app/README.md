@@ -9,7 +9,6 @@ A Poli Page test API key. Put it in `.env` at the **parent repo root** (`../.env
 ```bash
 # /Users/.../nextjs/.env
 POLI_PAGE_API_KEY=pp_test_…
-POLI_PAGE_BASE_URL=https://api-develop.poli.page
 ```
 
 `next.config.ts` loads that file automatically and falls back to a per-app `./.env` if you prefer. Real shell exports always win.

@@ -4,11 +4,13 @@ import { createPoliPageClient } from '../../src/index.js'
 const apiKey = process.env.POLI_PAGE_API_KEY ?? ''
 const skip = !apiKey.startsWith('pp_test_')
 
-describe.skipIf(skip)('render welcome against develop API (node runtime)', () => {
+describe.skipIf(skip)('render welcome against live API (node runtime)', () => {
   it('returns a PDF', async () => {
     const client = createPoliPageClient({
       apiKey,
-      baseUrl: 'https://api-develop.poli.page',
+      ...(process.env.POLI_PAGE_TEST_BASE_URL
+        ? { baseUrl: process.env.POLI_PAGE_TEST_BASE_URL }
+        : {}),
     })
     const bytes = await client.render.pdf({
       project: 'getting-started',

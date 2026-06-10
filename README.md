@@ -65,7 +65,7 @@ You configure the client through environment variables or by passing options to 
 | Variable | Default | Description |
 |---|---|---|
 | `POLI_PAGE_API_KEY` | required | Must start with `pp_test_` or `pp_live_`. |
-| `POLI_PAGE_BASE_URL` | SDK default | Set to `https://api-develop.poli.page` for the dev environment. |
+| `POLI_PAGE_BASE_URL` | SDK default | Override the API host. |
 | `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. |
 | `POLI_PAGE_MAX_RETRIES` | SDK default | Maximum retry attempts on retryable failures. |
 | `POLI_PAGE_RETRY_DELAY` | SDK default | Base delay between retries, in milliseconds. |
@@ -75,7 +75,6 @@ You configure the client through environment variables or by passing options to 
 import { createPoliPageClient } from '@poli-page/nextjs'
 
 export const poliPage = createPoliPageClient({
-  baseUrl: 'https://api-develop.poli.page',
   timeout: 30_000,
   maxRetries: 3,
 })

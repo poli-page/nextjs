@@ -79,7 +79,7 @@ describe('createPoliPageClient', () => {
     const onRequest = vi.fn()
     createPoliPageClient({
       apiKey: 'pp_test_xyz',
-      baseUrl: 'https://api-develop.poli.page',
+      baseUrl: 'https://api.example.com',
       timeout: 12_000,
       maxRetries: 5,
       retryDelay: 200,
@@ -87,7 +87,7 @@ describe('createPoliPageClient', () => {
     })
     expect(PoliPageMock).toHaveBeenCalledWith(expect.objectContaining({
       apiKey: 'pp_test_xyz',
-      baseUrl: 'https://api-develop.poli.page',
+      baseUrl: 'https://api.example.com',
       timeout: 12_000,
       maxRetries: 5,
       retryDelay: 200,
@@ -100,14 +100,14 @@ describe('createPoliPageClient', () => {
     process.env.POLI_PAGE_MAX_RETRIES = '7'
     process.env.POLI_PAGE_RETRY_DELAY = '250'
     process.env.POLI_PAGE_TIMEOUT = '15000'
-    process.env.POLI_PAGE_BASE_URL = 'https://api-develop.poli.page'
+    process.env.POLI_PAGE_BASE_URL = 'https://api.example.com'
     createPoliPageClient()
     expect(PoliPageMock).toHaveBeenCalledWith(expect.objectContaining({
       apiKey: 'pp_test_envnum',
       maxRetries: 7,
       retryDelay: 250,
       timeout: 15_000,
-      baseUrl: 'https://api-develop.poli.page',
+      baseUrl: 'https://api.example.com',
     }))
   })
 
