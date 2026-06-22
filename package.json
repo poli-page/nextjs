@@ -34,7 +34,7 @@
     "react": { "optional": true }
   },
   "dependencies": {
-    "@poli-page/sdk": "^1.0.0"
+    "@poli-page/sdk": "^0.9.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^4.0.0",
