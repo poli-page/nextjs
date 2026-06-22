@@ -16,7 +16,7 @@
     "./package.json": "./package.json"
   },
   "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
-  "engines": { "node": ">=18.18.0" },
+  "engines": { "node": ">=20.18.0" },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
