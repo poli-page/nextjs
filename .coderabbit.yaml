@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for poli-page repos. PRs here are mostly opened and fixed by automated agents
+# (the poli-page auto loop and issue pipeline), which read CodeRabbit's findings and its commit status.
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  allow_author_approval: true
+  # The summary goes in the walkthrough, never in the PR description: the merge gate reads the description.
+  high_level_summary: false
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: false
+  # The loop decides "reviewed this head" from the CodeRabbit commit status ("Review completed").
+  review_progress: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  # PR labels are the closed issues' labels; CodeRabbit only suggests.
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+  abort_on_close: true
+  disable_cache: false
+  slop_detection:
+    enabled: true
+    include_all_authors: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Every push of a fix round must be reviewed, and never auto-paused (the loop allows up to 5 rounds).
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  path_filters:
+    - "!**/package-lock.json"
+    - "!dist/**"
+    - "!**/.next/**"
+    - "!coverage/**"
+  path_instructions:
+    - path: "src/**"
+      instructions: >-
+        Published package @poli-page/nextjs. Must stay Web-standards-only (Request, Response, fetch,
+        ReadableStream) so it runs on both Node and the Edge runtime: flag Node-only APIs (fs, Buffer,
+        node:* imports). Public exports in src/index.ts are API surface; flag breaking changes that are
+        not accompanied by a major version bump and a CHANGELOG.md entry. Errors from the SDK
+        (PoliPageError) must map to typed JSON responses carrying the API's { error: { code } } shape.
+    - path: "src/responses/**"
+      instructions: >-
+        Response helpers must keep the safe defaults: Cache-Control no-store/private, RFC 5987
+        Content-Disposition, X-Content-Type-Options nosniff. Filenames from user input must be
+        sanitised or encoded, never interpolated raw into headers.
+    - path: "tests/**"
+      instructions: >-
+        Vitest. Every public export needs unit tests, including error paths. Unit tests must not hit
+        the network; integration tests (tests/integration) run against the develop API in both the node
+        and edge projects and must read keys from environment variables.
+    - path: "example-app/**"
+      instructions: >-
+        Sample code customers copy: favour correctness and idiomatic Next.js App Router usage
+        (route.ts handlers, Request/Response). Never hard-code API keys; read POLI_PAGE_API_KEY from the
+        environment. Keep it consistent with the README and the package's public API.
+    - path: "README.md"
+      instructions: >-
+        Code samples and the environment variable table must match the actual exports in src/ and the
+        client option names; flag drift.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns: []      # per repo
