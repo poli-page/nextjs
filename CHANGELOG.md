@@ -4,6 +4,10 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ## [Unreleased]
 
+### Fixed
+
+- `pdfResponse()` / route handler: the `Content-Disposition` filename is now escaped per RFC 6266 / RFC 9110 (`\` and `"` as quoted-pairs, ASCII fallback included) and stripped of control characters (CR/LF, TAB, DEL, C1), so a filename can no longer break the header or inject parameters.
+
 ## [0.1.0] — 2026-05-26
 
 ### Added

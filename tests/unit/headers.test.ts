@@ -42,4 +42,40 @@ describe('contentDisposition', () => {
     expect(contentDisposition('say "hi".pdf', false))
       .toContain('filename="say \\"hi\\".pdf"')
   })
+
+  it.each([
+    ['double-quote-is-escaped', 'say "hi".pdf', 'attachment; filename="say \\"hi\\".pdf"'],
+    ['backslash-is-escaped', 'a\\b.pdf', 'attachment; filename="a\\\\b.pdf"'],
+    [
+      'crlf-is-stripped',
+      'evil.pdf\r\nSet-Cookie: sid=1',
+      'attachment; filename="evil.pdfSet-Cookie: sid=1"',
+    ],
+    ['control-chars-are-stripped', 'tab\there\x00\x1f\x7f.pdf', 'attachment; filename="tabhere.pdf"'],
+    [
+      'parameter-injection-stays-inside-the-quoted-string',
+      'x.pdf"; filename="pwn.exe',
+      'attachment; filename="x.pdf\\"; filename=\\"pwn.exe"',
+    ],
+    [
+      'non-ascii-uses-rfc5987-dual-notation',
+      'résumé François.pdf',
+      `attachment; filename="r_sum_ Fran_ois.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9%20Fran%C3%A7ois.pdf`,
+    ],
+    [
+      'non-ascii-fallback-is-escaped',
+      'résumé "final"\\v2.pdf',
+      `attachment; filename="r_sum_ \\"final\\"\\\\v2.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9%20%22final%22%5Cv2.pdf`,
+    ],
+    [
+      'non-ascii-control-chars-are-stripped-from-both-forms',
+      'résumé\r\n\x85.pdf',
+      `attachment; filename="r_sum_.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf`,
+    ],
+  ])('is RFC 6266 safe: %s', (_id, filename, expected) => {
+    expect(contentDisposition(filename, false)).toBe(expected)
+  })
+  it('escapes and strips the inline disposition too', () => {
+    expect(contentDisposition('q"\r\n.pdf', true)).toBe('inline; filename="q\\".pdf"')
+  })
 })
