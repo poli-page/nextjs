@@ -5,7 +5,6 @@ export const POST = createPoliPageRouteHandler(async ({ client }) => {
     project: 'getting-started',
     template: 'welcome',
     data: { name: 'Stored doc' },
-    version: '1.0.0',
   })
   return Response.json(descriptor)
 })

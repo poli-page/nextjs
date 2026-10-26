@@ -21,7 +21,6 @@ export type {
   PoliPage,
   PoliPageError,
   PoliPageOptions,
-  ProjectModeInput,
-  InlineModeInput,
+  RenderInput,
   RetryEvent,
 } from '@poli-page/sdk'

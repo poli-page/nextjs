@@ -33,8 +33,16 @@ Set your key — Next.js loads the project-root `.env` automatically:
 
 ```bash
 # .env
-POLI_PAGE_API_KEY=pp_test_...
+POLI_PAGE_API_KEY=pp_sandbox_...
 ```
+
+An API key is `pp_{environment}_{32 hex characters}`. The environment it belongs to decides what a render does ("Counted" means the render counts toward the organization's monthly PDF quota):
+
+| Environment                           | Key            | Watermark | Counted |
+| ------------------------------------- | -------------- | --------- | ------- |
+| `sandbox` (every org)                 | `pp_sandbox_…` | yes       | no      |
+| `live` (every org, deletable on Pro+) | `pp_live_…`    | no        | yes     |
+| created on Pro+ (e.g. `staging`)      | `pp_staging_…` | no        | yes     |
 
 Next.js has no per-app CLI smoke test; the example app's `npm run dev` plays that role (see **Example app**).
 
@@ -49,7 +57,6 @@ export const GET = createPoliPageRouteHandler<{ name: string }>(async ({ client,
   bytes: await client.render.pdf({
     project: 'getting-started',
     template: 'welcome',
-    version: '1.0.0',
     data: { name: params.name },
   }),
   filename: `welcome-${params.name}.pdf`,
@@ -64,7 +71,7 @@ You configure the client through environment variables or by passing options to 
 
 | Variable | Default | Description |
 |---|---|---|
-| `POLI_PAGE_API_KEY` | required | Must start with `pp_test_` or `pp_live_`. |
+| `POLI_PAGE_API_KEY` | required | Your API key, for example `pp_sandbox_…`. A missing or empty key throws. A key that does not look like `pp_{environment}_{32 hex characters}` logs one warning (showing at most its `pp_{environment}_` part) and the client starts anyway: the API decides whether the key is valid (`401 INVALID_API_KEY`). |
 | `POLI_PAGE_BASE_URL` | SDK default | Override the API host. |
 | `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. |
 | `POLI_PAGE_MAX_RETRIES` | SDK default | Maximum retry attempts on retryable failures. |
@@ -112,7 +119,7 @@ import { PoliPageError } from '@poli-page/nextjs'
 
 export const GET = createPoliPageRouteHandler(async ({ client }) => {
   try {
-    return await client.render.pdf({ project: 'billing', template: 'invoice', version: '1.0.0', data: {} })
+    return await client.render.pdf({ project: 'billing', template: 'invoice', data: {} })
   } catch (err) {
     if (err instanceof PoliPageError && err.isRateLimitError()) {
       return new Response('Slow down', { status: 429, headers: { 'Retry-After': '60' } })
@@ -126,7 +133,7 @@ Pass `options.onError` to intercept errors before the default mapping.
 
 ## Example app
 
-A Next 15 App Router demo lives in [`example-app/`](example-app/). It covers every SDK demo step (`render.pdf`, `render.pdfStream`, `render.preview`, `documents.create`, `documents.get` redirect, `documents.thumbnails`, `documents.preview`, `documents.delete`, plus an `INVALID_VERSION_FORMAT` route) and includes an interactive dashboard at `/` and a standalone `npm run render-to-file` script.
+A Next 15 App Router demo lives in [`example-app/`](example-app/). It covers every SDK demo step (`render.pdf`, `render.pdfStream`, `render.document`, `documents.get` redirect, `documents.thumbnails`, `documents.preview`, `documents.delete`, plus a `GET /errors/not-found` route that answers `404 TEMPLATE_NOT_FOUND`) and includes an interactive dashboard at `/` and a standalone `npm run render-to-file` script.
 
 ```bash
 cd example-app

@@ -19,8 +19,13 @@ export interface PoliPageClientOptions {
   onError?: (err: PoliPageError) => void
 }
 
-const KEY_PATTERN = /^pp_(test|live)_/
+// The API is the only authority on keys: a malformed key only earns a warning.
+const KEY_PATTERN = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$/
+// At most `pp_{env}_`, with `{env}` no longer than an environment name can be,
+// so no run of secret characters ever reaches the log.
+const SHOWN_PREFIX = /^pp_[^_]{1,20}_/
 const memo = new Map<string, PoliPage>()
+const warnedKeys = new Set<string>()
 
 export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage {
   if (options !== undefined) return build(options)
@@ -40,9 +45,7 @@ function build(options: PoliPageClientOptions): PoliPage {
   if (apiKey === '') {
     throw new Error('apiKey is required.')
   }
-  if (!KEY_PATTERN.test(apiKey)) {
-    throw new Error(`apiKey must start with pp_test_ or pp_live_, got: ${apiKey.slice(0, 8)}…`)
-  }
+  if (!KEY_PATTERN.test(apiKey)) warnMalformedKey(apiKey)
   const baseUrl = options.baseUrl ?? process.env.POLI_PAGE_BASE_URL
   const maxRetries = options.maxRetries ?? parsePositiveInt(process.env.POLI_PAGE_MAX_RETRIES)
   const retryDelay = options.retryDelay ?? parsePositiveInt(process.env.POLI_PAGE_RETRY_DELAY)
@@ -61,6 +64,16 @@ function build(options: PoliPageClientOptions): PoliPage {
   return new PoliPage(sdkOptions)
 }
 
+function warnMalformedKey(apiKey: string): void {
+  if (warnedKeys.has(apiKey)) return
+  warnedKeys.add(apiKey)
+  const shown = SHOWN_PREFIX.exec(apiKey)?.[0] ?? ''
+  console.warn(
+    `[@poli-page/nextjs] The API key "${shown}…" does not look like pp_{environment}_{32 hex characters}. ` +
+      'Starting anyway: the Poli Page API decides whether the key is valid.',
+  )
+}
+
 function parsePositiveInt(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined
   const n = Number(raw)
@@ -70,4 +83,5 @@ function parsePositiveInt(raw: string | undefined): number | undefined {
 /** @internal — tests only. Do not use in application code. */
 export function __resetMemoForTests(): void {
   memo.clear()
+  warnedKeys.clear()
 }

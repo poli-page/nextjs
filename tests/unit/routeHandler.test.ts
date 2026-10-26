@@ -5,7 +5,7 @@ import { createPoliPageRouteHandler } from '../../src/routeHandler.js'
 import { __resetMemoForTests } from '../../src/client.js'
 
 const stubClient = (): PoliPage =>
-  ({ render: { pdf: vi.fn(), preview: vi.fn(), pdfStream: vi.fn() } } as unknown as PoliPage)
+  ({ render: { pdf: vi.fn(), pdfStream: vi.fn() } } as unknown as PoliPage)
 
 const pdfBytes = new TextEncoder().encode('%PDF-1.4\nstub\n')
 const req = new Request('http://localhost/test')
@@ -105,12 +105,12 @@ describe('createPoliPageRouteHandler', () => {
 
   it('maps PoliPageError to typed JSON response', async () => {
     const handler = createPoliPageRouteHandler(
-      async () => { throw new PoliPageError('bad', 'INVALID_VERSION_FORMAT', 400) },
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
       { client: stubClient() },
     )
     const r = await handler(req, ctx())
-    expect(r.status).toBe(400)
-    expect(await r.json()).toMatchObject({ code: 'INVALID_VERSION_FORMAT' })
+    expect(r.status).toBe(404)
+    expect(await r.json()).toMatchObject({ code: 'TEMPLATE_NOT_FOUND' })
   })
 
   it('rethrows non-PoliPageError', async () => {
@@ -136,7 +136,7 @@ describe('createPoliPageRouteHandler', () => {
   })
 
   it('uses the default client when none is passed', async () => {
-    process.env.POLI_PAGE_API_KEY = 'pp_test_default'
+    process.env.POLI_PAGE_API_KEY = 'pp_sandbox_0123456789abcdef0123456789abcdef'
     let captured: PoliPage | undefined
     const handler = createPoliPageRouteHandler(async ({ client }) => { captured = client; return pdfBytes })
     await handler(req, ctx())
@@ -158,7 +158,7 @@ describe('createPoliPageRouteHandler', () => {
   it('falls through to default mapping when onError returns void on a PoliPageError', async () => {
     const onError = vi.fn(() => undefined)
     const handler = createPoliPageRouteHandler(
-      async () => { throw new PoliPageError('bad', 'INVALID_VERSION_FORMAT', 400) },
+      async () => { throw new PoliPageError('bad', 'VALIDATION_ERROR', 400) },
       { client: stubClient(), onError },
     )
     const r = await handler(req, ctx())

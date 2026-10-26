@@ -4,14 +4,14 @@ import { poliPageErrorToResponse } from '../../src/errors.js'
 
 describe('poliPageErrorToResponse', () => {
   it('maps 4xx to same status with canonical body', async () => {
-    const err = new PoliPageError('Bad version', 'INVALID_VERSION_FORMAT', 400, 'req_1')
+    const err = new PoliPageError('Template not found', 'TEMPLATE_NOT_FOUND', 404, 'req_1')
     const r = poliPageErrorToResponse(err)
-    expect(r.status).toBe(400)
+    expect(r.status).toBe(404)
     expect(r.headers.get('content-type')).toBe('application/json; charset=utf-8')
     expect(await r.json()).toEqual({
-      code: 'INVALID_VERSION_FORMAT',
-      message: 'Bad version',
-      status: 400,
+      code: 'TEMPLATE_NOT_FOUND',
+      message: 'Template not found',
+      status: 404,
       requestId: 'req_1',
     })
   })
@@ -41,7 +41,7 @@ describe('poliPageErrorToResponse', () => {
   })
 
   it('sets cache-control no-store on error responses', () => {
-    const r = poliPageErrorToResponse(new PoliPageError('x', 'INVALID_VERSION_FORMAT', 400))
+    const r = poliPageErrorToResponse(new PoliPageError('x', 'VALIDATION_ERROR', 400))
     expect(r.headers.get('cache-control')).toBe('no-store, private')
   })
 })
