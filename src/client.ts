@@ -19,11 +19,13 @@ export interface PoliPageClientOptions {
   onError?: (err: PoliPageError) => void
 }
 
+// The `pp_{env}_` part of the contract's key pattern. A warning shows at most
+// this part, and only when `{env}` follows the contract grammar (lowercase,
+// letter first, single inner hyphens, at most 20 characters): anything looser
+// could show secret material.
+const SHOWN_PREFIX = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_/
 // The API is the only authority on keys: a malformed key only earns a warning.
-const KEY_PATTERN = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$/
-// At most `pp_{env}_`, with `{env}` no longer than an environment name can be,
-// so no run of secret characters ever reaches the log.
-const SHOWN_PREFIX = /^pp_[^_]{1,20}_/
+const KEY_PATTERN = new RegExp(`${SHOWN_PREFIX.source}[0-9a-f]{32}$`)
 const memo = new Map<string, PoliPage>()
 const warnedKeys = new Set<string>()
 

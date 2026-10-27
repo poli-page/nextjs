@@ -75,9 +75,15 @@ describe('createPoliPageClient', () => {
 
   it.each([
     ['a too-short secret', 'pp_sandbox_x', 'pp_sandbox_'],
-    ['an uppercase environment', `pp_Sandbox_${SECRET}`, 'pp_Sandbox_'],
-    ['an environment starting with a digit', `pp_2fa_${SECRET}`, 'pp_2fa_'],
-    ['a doubled hyphen', `pp_a--b_${SECRET}`, 'pp_a--b_'],
+    ['a hyphenated environment', 'pp_eu-prod_x', 'pp_eu-prod_'],
+    ['a 20-character environment', `pp_${'a'.repeat(20)}_x`, `pp_${'a'.repeat(20)}_`],
+    // `{env}` outside the contract grammar may be secret material: no key text.
+    ['secret-like characters in the environment slot', 'pp_0123456789abcdef0123_rest', ''],
+    ['an uppercase environment', `pp_Sandbox_${SECRET}`, ''],
+    ['an environment starting with a digit', `pp_2fa_${SECRET}`, ''],
+    ['a doubled hyphen', `pp_a--b_${SECRET}`, ''],
+    ['a leading hyphen', `pp_-eu_${SECRET}`, ''],
+    ['a trailing hyphen', `pp_eu-_${SECRET}`, ''],
     ['a 21-character environment', `pp_${'a'.repeat(21)}_${SECRET}`, ''],
     ['a non-pp_ token', `dash_tok_${SECRET}`, ''],
   ])('builds a client and warns once for %s', (_label, key, shownPrefix) => {
