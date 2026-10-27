@@ -19,13 +19,10 @@ export interface PoliPageClientOptions {
   onError?: (err: PoliPageError) => void
 }
 
-// The `pp_{env}_` part of the contract's key pattern. A warning shows at most
-// this part, and only when `{env}` follows the contract grammar (lowercase,
-// letter first, single inner hyphens, at most 20 characters): anything looser
-// could show secret material.
-const SHOWN_PREFIX = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_/
-// The API is the only authority on keys: a malformed key only earns a warning.
-const KEY_PATTERN = new RegExp(`${SHOWN_PREFIX.source}[0-9a-f]{32}$`)
+// `pp_{env}_{32 hex}`, where `{env}` is lowercase, letter first, single inner
+// hyphens, at most 20 characters. The API is the only authority on keys: a
+// malformed key only earns a warning.
+const KEY_PATTERN = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$/
 const memo = new Map<string, PoliPage>()
 const warnedKeys = new Set<string>()
 
@@ -69,9 +66,10 @@ function build(options: PoliPageClientOptions): PoliPage {
 function warnMalformedKey(apiKey: string): void {
   if (warnedKeys.has(apiKey)) return
   warnedKeys.add(apiKey)
-  const shown = SHOWN_PREFIX.exec(apiKey)?.[0] ?? ''
+  // No part of the key, not even a `pp_{env}_` prefix: a mis-pasted secret
+  // fragment can look like an environment name.
   console.warn(
-    `[@poli-page/nextjs] The API key "${shown}…" does not look like pp_{environment}_{32 hex characters}. ` +
+    '[@poli-page/nextjs] The API key does not match the expected format pp_{environment}_{32 lowercase hex characters}. ' +
       'Starting anyway: the Poli Page API decides whether the key is valid.',
   )
 }

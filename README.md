@@ -71,7 +71,7 @@ You configure the client through environment variables or by passing options to 
 
 | Variable | Default | Description |
 |---|---|---|
-| `POLI_PAGE_API_KEY` | required | Your API key, for example `pp_sandbox_…`. A missing or empty key throws. A key that does not look like `pp_{environment}_{32 hex characters}` logs one warning (showing at most its `pp_{environment}_` part, only when `{environment}` is a well-formed environment name) and the client starts anyway: the API decides whether the key is valid (`401 INVALID_API_KEY`). |
+| `POLI_PAGE_API_KEY` | required | Your API key, for example `pp_sandbox_…`. A missing or empty key throws. A key that does not match `pp_{environment}_{32 lowercase hex characters}` logs one warning that names the expected format and shows no part of the key, and the client starts anyway: the API decides whether the key is valid (`401 INVALID_API_KEY`). |
 | `POLI_PAGE_BASE_URL` | SDK default | Override the API host. |
 | `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. |
 | `POLI_PAGE_MAX_RETRIES` | SDK default | Maximum retry attempts on retryable failures. |

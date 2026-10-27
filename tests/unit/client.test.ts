@@ -19,6 +19,19 @@ const PoliPageMock = vi.mocked(PoliPage)
 const SECRET = '0123456789abcdef0123456789abcdef'
 const SANDBOX_KEY = `pp_sandbox_${SECRET}`
 const sandboxKey = (hexChar: string): string => `pp_sandbox_${hexChar.repeat(32)}`
+const EXPECTED_FORMAT = 'does not match the expected format pp_{environment}_{32 lowercase hex characters}.'
+
+// Fails when `message` shows any part of `key`: the whole key, its
+// `{prefix}_{env}_` part, or any `_`-separated segment of 3+ characters.
+function expectNoKeyText(message: string, key: string): void {
+  const trimmed = key.trim()
+  expect(message).not.toContain(trimmed)
+  const prefix = /^[^_]*_[^_]*_/.exec(trimmed)?.[0]
+  if (prefix !== undefined) expect(message).not.toContain(prefix)
+  for (const segment of trimmed.split('_').filter(part => part.length >= 3)) {
+    expect(message).not.toContain(segment)
+  }
+}
 
 describe('createPoliPageClient', () => {
   const originalEnv = { ...process.env }
@@ -54,19 +67,24 @@ describe('createPoliPageClient', () => {
     expect(() => createPoliPageClient()).toThrowError(/POLI_PAGE_API_KEY/)
   })
 
-  it('throws when POLI_PAGE_API_KEY is empty', () => {
+  it('throws when POLI_PAGE_API_KEY is empty, with a message that shows no key text', () => {
     process.env.POLI_PAGE_API_KEY = ''
-    expect(() => createPoliPageClient()).toThrowError(/POLI_PAGE_API_KEY/)
+    expect(() => createPoliPageClient()).toThrowError(
+      /^POLI_PAGE_API_KEY is not set\. Pass apiKey: explicitly or set the env var\.$/,
+    )
+    expect(warn).not.toHaveBeenCalled()
   })
 
-  it('throws when an explicit apiKey is empty and the env var is unset', () => {
-    expect(() => createPoliPageClient({ apiKey: '' })).toThrowError(/apiKey is required/)
+  it('throws when an explicit apiKey is empty and the env var is unset, with a message that shows no key text', () => {
+    expect(() => createPoliPageClient({ apiKey: '' })).toThrowError(/^apiKey is required\.$/)
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it.each([
     SANDBOX_KEY,
     `pp_live_${SECRET}`,
     `pp_eu-prod_${SECRET}`,
+    `pp_${'a'.repeat(20)}_${SECRET}`,
   ])('accepts a well-formed key with no warning: %s', key => {
     createPoliPageClient({ apiKey: key })
     expect(PoliPageMock).toHaveBeenCalledWith(expect.objectContaining({ apiKey: key }))
@@ -74,36 +92,37 @@ describe('createPoliPageClient', () => {
   })
 
   it.each([
-    ['a too-short secret', 'pp_sandbox_x', 'pp_sandbox_'],
-    ['a hyphenated environment', 'pp_eu-prod_x', 'pp_eu-prod_'],
-    ['a 20-character environment', `pp_${'a'.repeat(20)}_x`, `pp_${'a'.repeat(20)}_`],
-    // `{env}` outside the contract grammar may be secret material: no key text.
-    ['secret-like characters in the environment slot', 'pp_0123456789abcdef0123_rest', ''],
-    ['an uppercase environment', `pp_Sandbox_${SECRET}`, ''],
-    ['an environment starting with a digit', `pp_2fa_${SECRET}`, ''],
-    ['a doubled hyphen', `pp_a--b_${SECRET}`, ''],
-    ['a leading hyphen', `pp_-eu_${SECRET}`, ''],
-    ['a trailing hyphen', `pp_eu-_${SECRET}`, ''],
-    ['a 21-character environment', `pp_${'a'.repeat(21)}_${SECRET}`, ''],
-    ['a non-pp_ token', `dash_tok_${SECRET}`, ''],
-  ])('builds a client and warns once for %s', (_label, key, shownPrefix) => {
+    // A grammar-valid `pp_{env}_` part is still not shown: a mis-pasted secret
+    // fragment can look like an environment name.
+    ['a grammar-valid prefix with a bad secret', 'pp_sandbox_XYZ'],
+    ['a too-short secret', 'pp_sandbox_x'],
+    ['a hyphenated environment with a bad secret', 'pp_eu-prod_x'],
+    ['a hex fragment in the environment slot', `pp_abc123_${SECRET.slice(0, 16)}`],
+    ['a trailing newline', `${SANDBOX_KEY}\n`],
+    ['secret-like characters in the environment slot', 'pp_0123456789abcdef0123_rest'],
+    ['an uppercase environment', `pp_Sandbox_${SECRET}`],
+    ['an environment starting with a digit', `pp_2fa_${SECRET}`],
+    ['a doubled hyphen', `pp_a--b_${SECRET}`],
+    ['a leading hyphen', `pp_-eu_${SECRET}`],
+    ['a trailing hyphen', `pp_eu-_${SECRET}`],
+    ['a 21-character environment', `pp_${'a'.repeat(21)}_${SECRET}`],
+    ['a non-pp_ token', `dash_tok_${SECRET}`],
+  ])('builds a client and warns once, showing no key text, for %s', (_label, key) => {
     createPoliPageClient({ apiKey: key })
     createPoliPageClient({ apiKey: key })
     expect(PoliPageMock).toHaveBeenCalledWith(expect.objectContaining({ apiKey: key }))
     expect(warn).toHaveBeenCalledTimes(1)
     const message = String(warn.mock.calls[0]?.[0])
-    expect(message).not.toContain(SECRET)
-    expect(message).not.toContain(key)
-    expect(message).toContain(`"${shownPrefix}…"`)
+    expect(message).toContain(EXPECTED_FORMAT)
+    expectNoKeyText(message, key)
   })
 
-  it('does not leak the secret of a malformed key read from the env', () => {
+  it('shows no key text for a malformed key read from the env', () => {
     process.env.POLI_PAGE_API_KEY = 'pp_sandbox_x'
     createPoliPageClient()
     createPoliPageClient()
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0]?.[0])).toContain('pp_sandbox_')
-    expect(String(warn.mock.calls[0]?.[0])).not.toContain('pp_sandbox_x')
+    expectNoKeyText(String(warn.mock.calls[0]?.[0]), 'pp_sandbox_x')
   })
 
   it('warns once per distinct malformed key', () => {
