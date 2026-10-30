@@ -65,4 +65,4 @@ npm can only attach a trusted publisher to a package that already exists, so the
 
 If `verify` fails, nothing was published: fix it on `main`, delete the tag (`git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`) and tag again. A published version can't be republished; release a new patch version instead.
 
-If `publish` fails after npm accepted the package (for example while creating the GitHub Release), re-run the failed jobs: a version already on npm is not published again, and the GitHub Release is created only if it is missing.
+If `publish` fails after npm accepted the package (for example while creating the GitHub Release), re-run the failed jobs: a version already on npm is not published again, and the GitHub Release is created only if it is missing. Both jobs first check that the version on npm was published from the tagged commit (npm's `gitHead` for it equals the tag's commit) and fail if it was not, so a tag moved to another commit can't release notes and a GitHub Release for code that is not on npm.
