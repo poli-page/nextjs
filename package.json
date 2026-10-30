@@ -1,17 +1,25 @@
 {
   "name": "@poli-page/nextjs",
-  "version": "0.1.0",
+  "version": "0.11.0",
   "description": "Official Next.js integration for the Poli Page PDF rendering API",
   "license": "MIT",
+  "author": "Poli Page",
+  "keywords": ["nextjs", "next", "app-router", "edge", "poli-page", "pdf", "pdf-generation", "html-to-pdf", "templates", "sdk"],
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -21,6 +29,7 @@
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
+    "lint:pack": "attw --pack . --profile node16 && publint --strict",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --project integration-node --project integration-edge",
@@ -37,6 +46,7 @@
     "@poli-page/sdk": "^0.11.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@edge-runtime/vm": "^4.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
@@ -44,6 +54,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
     "next": "^15.0.0",
+    "publint": "^0.3.25",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "tsup": "^8.0.0",

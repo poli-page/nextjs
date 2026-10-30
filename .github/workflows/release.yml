@@ -1,0 +1,222 @@
+name: Release
+
+# Tag-triggered release. Push a tag `vX.Y.Z` to run checks, then (after manual
+# approval on the `npm-publish` environment) publish to npm via OIDC Trusted
+# Publishing with Sigstore provenance, and create the GitHub Release.
+#
+# Flow:
+#   1. Bump version in package.json + move CHANGELOG [Unreleased] -> [X.Y.Z]; merge to main.
+#   2. git tag vX.Y.Z && git push origin vX.Y.Z
+#   3. `verify` runs all checks on the tagged commit.
+#   4. `publish` waits for a required reviewer to approve, then publishes.
+#
+# Re-running the workflow for a tag is safe: a version already on npm is not
+# published again, and an existing GitHub Release is left as is.
+#
+# Auth: npm Trusted Publisher must be configured for THIS repo + workflow file
+# (release.yml) + environment (npm-publish). No NPM_TOKEN secret is used.
+# See RELEASING.md.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example-app/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The tag is not vX.Y.Z or vX.Y.Z-prerelease"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag $TAG -> version $VERSION"
+
+      - name: Guard A — tag matches package.json
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$PKG_VERSION" != "$VERSION" ]]; then
+            echo "::error::package.json ($PKG_VERSION) does not match tag ($VERSION)"
+            echo "Refusing: bump package.json to $VERSION (or retag) before releasing." >&2
+            exit 1
+          fi
+          echo "package.json matches tag ($PKG_VERSION) — OK."
+
+      - name: Guard B — CHANGELOG has the version section
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section"
+            echo "Refusing: move [Unreleased] to [$VERSION] in CHANGELOG.md before releasing." >&2
+            exit 1
+          fi
+          echo "CHANGELOG.md has a [$VERSION] section — OK."
+
+      - name: Check — version already on npm
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          if npm view "@poli-page/nextjs@$VERSION" version >/dev/null 2>&1; then
+            echo "::notice::@poli-page/nextjs@$VERSION is already on npm: publish will skip it and only create the GitHub Release if missing."
+          else
+            echo "@poli-page/nextjs@$VERSION is not yet published — OK."
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate published types & manifest (attw + publint)
+        run: npm run lint:pack
+
+      # The contract tests run the example app, built against this build of the package.
+      - name: Install the example app
+        run: npm ci
+        working-directory: example-app
+
+      - name: Build the example app
+        run: npm run build
+        working-directory: example-app
+
+      - name: API contract
+        id: contract
+        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
+
+      - name: Test
+        run: npm test
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}
+
+      - name: Pack and show contents
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack | tail -n 1)"
+          echo "Tarball: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+          tar -tzf "$TARBALL"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: write   # create the GitHub Release
+      id-token: write   # OIDC for npm provenance + Trusted Publishing
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm (OIDC Trusted Publishing needs >= 11.5)
+        run: npm install -g npm@latest
+
+      # No dependency install scripts run in the job that can mint the OIDC token.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Compute dist-tag
+        id: disttag
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-* ]]; then TAG=next; else TAG=latest; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION to dist-tag $TAG"
+
+      - name: Publish to npm with provenance
+        env:
+          DIST_TAG: ${{ steps.disttag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if npm view "@poli-page/nextjs@$VERSION" version >/dev/null 2>&1; then
+            echo "::notice::@poli-page/nextjs@$VERSION is already on npm; not publishing it again."
+          else
+            npm publish --access public --provenance --tag "$DIST_TAG"
+          fi
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          set -euo pipefail
+          # Print lines between "## [VERSION]" and the next "## [" heading or link reference.
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 {flag=1; next}
+            flag && /^## \[/ {flag=0}
+            flag && /^\[[^]]+\]: / {flag=0}
+            flag {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [[ ! -s RELEASE_NOTES.md ]]; then
+            echo "See CHANGELOG.md for details." > RELEASE_NOTES.md
+          fi
+          echo "----- notes -----"; cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DIST_TAG: ${{ steps.disttag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "::notice::GitHub Release v$VERSION already exists; leaving it as is."
+            exit 0
+          fi
+          PRERELEASE=""
+          if [[ "$DIST_TAG" == "next" ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file RELEASE_NOTES.md \
+            $PRERELEASE
