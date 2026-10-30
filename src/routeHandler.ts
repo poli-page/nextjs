@@ -45,7 +45,7 @@ export function createPoliPageRouteHandler<TParams = Record<string, string>>(
     const routeCtx: RouteHandlerContext<TParams> = { req, params, client }
     try {
       const result = await handler(routeCtx)
-      return materialise(result)
+      return await materialise(result)
     } catch (err) {
       if (options.onError !== undefined) {
         const custom = options.onError(err, routeCtx)
@@ -59,10 +59,10 @@ export function createPoliPageRouteHandler<TParams = Record<string, string>>(
   }
 }
 
-function materialise(result: RouteHandlerResult): Response {
+async function materialise(result: RouteHandlerResult): Promise<Response> {
   if (result instanceof Response) return result
   if (result instanceof Uint8Array || result instanceof ArrayBuffer) return pdfResponse(result)
-  if (result instanceof ReadableStream) return pdfResponse(result)
+  if (result instanceof ReadableStream) return pdfResponse(await primed(result))
   switch (result.kind) {
     case 'pdf': {
       const opts: PdfResponseOptions = {}
@@ -74,7 +74,7 @@ function materialise(result: RouteHandlerResult): Response {
       const opts: PdfResponseOptions = {}
       if (result.filename !== undefined) opts.filename = result.filename
       if (result.inline !== undefined) opts.inline = result.inline
-      return pdfResponse(result.stream, opts)
+      return pdfResponse(await primed(result.stream), opts)
     }
     case 'preview':
       return previewResponse(result.html)
@@ -84,4 +84,29 @@ function materialise(result: RouteHandlerResult): Response {
       return documentRedirectResponse(result.url, opts)
     }
   }
+}
+
+/**
+ * Reads the stream's first chunk before the `Response` is built, so an error the stream raises
+ * before any byte (e.g. `DOWNLOAD_FAILED` from `render.pdfStream()`) is thrown inside the route
+ * handler and answered like any other error. The returned stream re-emits that chunk, then the
+ * rest; a later error aborts the response, so a truncated PDF never looks complete.
+ */
+async function primed(stream: ReadableStream<Uint8Array>): Promise<ReadableStream<Uint8Array>> {
+  const reader = stream.getReader()
+  const first = await reader.read()
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      if (first.done) controller.close()
+      else controller.enqueue(first.value)
+    },
+    async pull(controller) {
+      const next = await reader.read()
+      if (next.done) controller.close()
+      else controller.enqueue(next.value)
+    },
+    cancel(reason) {
+      return reader.cancel(reason)
+    },
+  })
 }

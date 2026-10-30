@@ -146,6 +146,75 @@ describe('createPoliPageRouteHandler', () => {
     expect(r.status).toBe(410)
   })
 
+  describe('stream results', () => {
+    const DOWNLOAD_FAILED = new PoliPageError('Failed to download PDF: HTTP 403', 'DOWNLOAD_FAILED', 403)
+
+    /** A stream like render.pdfStream()'s: `chunks` first, then `err`. */
+    const failingStream = (chunks: readonly Uint8Array[], err: Error): ReadableStream<Uint8Array> => {
+      let i = 0
+      return new ReadableStream<Uint8Array>({
+        pull(c) {
+          const chunk = chunks[i++]
+          if (chunk === undefined) c.error(err)
+          else c.enqueue(chunk)
+        },
+      })
+    }
+
+    it('answers a PoliPageError raised before the first chunk of { kind: "stream" }', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => ({ kind: 'stream' as const, stream: failingStream([], DOWNLOAD_FAILED), filename: 'x.pdf' }),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(403)
+      expect(r.headers.get('content-type')).toBe('application/json')
+      expect(r.headers.get('content-disposition')).toBeNull()
+      expect(await r.json()).toStrictEqual(DOWNLOAD_FAILED.toPayload())
+    })
+
+    it('answers a PoliPageError raised before the first chunk of a bare ReadableStream', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => failingStream([], DOWNLOAD_FAILED),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(403)
+      expect(await r.json()).toStrictEqual(DOWNLOAD_FAILED.toPayload())
+    })
+
+    it('rethrows a stream error before the first chunk with handleErrors: false', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => failingStream([], DOWNLOAD_FAILED),
+        { client: stubClient(), handleErrors: false },
+      )
+      await expect(handler(req, ctx())).rejects.toBe(DOWNLOAD_FAILED)
+    })
+
+    it('errors the body after the first chunk, so a truncated PDF never ends cleanly', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => ({ kind: 'stream' as const, stream: failingStream([pdfBytes], DOWNLOAD_FAILED) }),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(200)
+      expect(r.headers.get('content-type')).toBe('application/pdf')
+      const reader = r.body?.getReader()
+      expect(await reader?.read()).toEqual({ done: false, value: pdfBytes })
+      await expect(reader?.read()).rejects.toBe(DOWNLOAD_FAILED)
+    })
+
+    it('re-emits every chunk of a stream that succeeds', async () => {
+      const second = new TextEncoder().encode('%%EOF\n')
+      const stream = new ReadableStream<Uint8Array>({
+        start(c) { c.enqueue(pdfBytes); c.enqueue(second); c.close() },
+      })
+      const handler = createPoliPageRouteHandler(async () => stream, { client: stubClient() })
+      const r = await handler(req, ctx())
+      expect(new Uint8Array(await r.arrayBuffer())).toEqual(new Uint8Array([...pdfBytes, ...second]))
+    })
+  })
+
   it('rethrows non-PoliPageError', async () => {
     const handler = createPoliPageRouteHandler(
       async () => { throw new Error('boom') },
