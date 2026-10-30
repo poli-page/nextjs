@@ -172,7 +172,11 @@ describe('createPoliPageClient', () => {
     expect(b).not.toBe(c)
     expect(c).toBe(d)
     expect(PoliPageMock).toHaveBeenCalledTimes(3)
-    expect(PoliPageMock).toHaveBeenLastCalledWith({
+    // One cached client: going back to an earlier configuration builds a new one.
+    delete process.env.POLI_PAGE_TIMEOUT
+    expect(createPoliPageClient()).not.toBe(b)
+    expect(PoliPageMock).toHaveBeenCalledTimes(4)
+    expect(PoliPageMock).toHaveBeenNthCalledWith(3, {
       apiKey: sandboxKey('a'),
       baseUrl: 'http://127.0.0.1:4002',
       timeout: 5000,

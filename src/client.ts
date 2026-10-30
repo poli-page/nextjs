@@ -23,7 +23,8 @@ export interface PoliPageClientOptions {
 // hyphens, at most 20 characters. The API is the only authority on keys: a
 // malformed key only earns a warning.
 const KEY_PATTERN = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$/
-const memo = new Map<string, PoliPage>()
+// The last client built from the environment, with the configuration it was built from.
+let memo: { key: string; client: PoliPage } | undefined
 const warnedKeys = new Set<string>()
 
 export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage {
@@ -32,8 +33,8 @@ export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage 
   if (apiKey === '') {
     throw new Error('POLI_PAGE_API_KEY is not set. Pass apiKey: explicitly or set the env var.')
   }
-  // One client per environment configuration: a changed key, base URL or retry
-  // setting gets a new client instead of the one built from the old values.
+  // Reuse the last client while the environment configuration is unchanged: a
+  // changed key, base URL or retry setting gets a new client.
   const key = JSON.stringify([
     apiKey,
     process.env.POLI_PAGE_BASE_URL,
@@ -41,10 +42,9 @@ export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage 
     process.env.POLI_PAGE_RETRY_DELAY,
     process.env.POLI_PAGE_TIMEOUT,
   ])
-  const existing = memo.get(key)
-  if (existing !== undefined) return existing
+  if (memo?.key === key) return memo.client
   const client = build({ apiKey })
-  memo.set(key, client)
+  memo = { key, client }
   return client
 }
 
@@ -91,6 +91,6 @@ function parsePositiveInt(raw: string | undefined): number | undefined {
 
 /** @internal — tests only. Do not use in application code. */
 export function __resetMemoForTests(): void {
-  memo.clear()
+  memo = undefined
   warnedKeys.clear()
 }
