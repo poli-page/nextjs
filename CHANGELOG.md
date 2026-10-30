@@ -23,7 +23,9 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ### Fixed
 
-- `createPoliPageClient()` (no arguments) memoised its client by API key only, so a changed `POLI_PAGE_BASE_URL`, `POLI_PAGE_TIMEOUT`, `POLI_PAGE_MAX_RETRIES` or `POLI_PAGE_RETRY_DELAY` kept the client built from the old values. The memo is now keyed on all of them.
+- Route handler: a stream result (`{ kind: 'stream' }`, a bare `ReadableStream`) is read up to its first chunk before the `Response` is built, so a `PoliPageError` the stream raises before any byte (e.g. `DOWNLOAD_FAILED` from `render.pdfStream()`) is answered with its `toPayload()` JSON instead of a dropped connection. An error after the first chunk still aborts the response.
+
+- `createPoliPageClient()` (no arguments) memoised its client by API key only, so a changed `POLI_PAGE_BASE_URL`, `POLI_PAGE_TIMEOUT`, `POLI_PAGE_MAX_RETRIES` or `POLI_PAGE_RETRY_DELAY` kept the client built from the old values. It now keeps one client, rebuilt when any of them changes.
 - README: the Node.js requirement is `>=20.18.0`, as `engines` says.
 
 - `pdfResponse()` / route handler: the `Content-Disposition` filename is now escaped per RFC 6266 / RFC 9110 (`\` and `"` as quoted-pairs, ASCII fallback included) and stripped of control characters (CR/LF, TAB, DEL, C1), so a filename can no longer break the header or inject parameters.

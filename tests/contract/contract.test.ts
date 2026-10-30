@@ -346,10 +346,23 @@ function mediaType(contentType: string | undefined): string | undefined {
   return contentType?.split(';')[0]?.trim().toLowerCase()
 }
 
-/** Sets the example app's environment for one case, and gives back a function that restores it. */
+/**
+ * Sets the example app's environment for one case, and gives back a function that restores it.
+ * The SDK's retry and timeout settings are unset, so a local `.env` cannot change the defaults
+ * the cases expect.
+ */
 function exampleAppEnv(baseUrl: string): () => void {
-  const names = ['POLI_PAGE_API_KEY', 'POLI_PAGE_BASE_URL'] as const
+  const names = [
+    'POLI_PAGE_API_KEY',
+    'POLI_PAGE_BASE_URL',
+    'POLI_PAGE_MAX_RETRIES',
+    'POLI_PAGE_RETRY_DELAY',
+    'POLI_PAGE_TIMEOUT',
+  ] as const
   const saved = names.map((name) => [name, process.env[name]] as const)
+  delete process.env.POLI_PAGE_MAX_RETRIES
+  delete process.env.POLI_PAGE_RETRY_DELAY
+  delete process.env.POLI_PAGE_TIMEOUT
   process.env.POLI_PAGE_API_KEY = TEST_API_KEY
   process.env.POLI_PAGE_BASE_URL = baseUrl
   return () => {

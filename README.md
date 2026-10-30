@@ -88,7 +88,7 @@ export const poliPage = createPoliPageClient({
 })
 ```
 
-The no-arg form (`createPoliPageClient()`) memoises one instance per environment configuration (the `POLI_PAGE_*` variables above); passing options bypasses the memo.
+The no-arg form (`createPoliPageClient()`) keeps the client built from the current environment configuration (the `POLI_PAGE_*` variables above) and builds a new one when it changes; passing options bypasses the memo.
 
 ## API at a glance
 
@@ -128,6 +128,8 @@ The SDK raises a single `PoliPageError` class. You discriminate failure modes th
 | SDK error with no status (e.g. `aborted`) | `500` | `null` |
 
 `requestId` is the API's `x-request-id`, or `null` when there is none. Anything that is not a `PoliPageError` bubbles to Next.js as usual.
+
+A stream result (`{ kind: 'stream' }` or a bare `ReadableStream`, e.g. from `render.pdfStream()`) is read up to its first chunk before the response is built, so an error the stream raises before any byte (such as `DOWNLOAD_FAILED`) is answered the same way. An error after the first chunk aborts the response, so a truncated PDF never looks complete.
 
 To handle the errors yourself, turn it off for a route with `handleErrors: false`: the `PoliPageError` is then rethrown, and Next.js answers it like any other error. `options.onError` runs first either way, and a `Response` it returns is used as the answer.
 
@@ -196,7 +198,7 @@ npm run build && (cd example-app && npm ci && npm run build)
 POLI_CONTRACT=/path/to/contract.json npm test
 ```
 
-`tests/contract-skip.json` lists the cases allowed to fail, each with its reason.
+`tests/contract-skip.json` lists the cases allowed to fail, each with its reason. The example app always runs on its own locked Next.js 15 (it uses `next.config.ts` and `typedRoutes`, which need Next 15), so on the Next 14 CI legs only the unit tests and the typecheck run against Next 14.
 
 ## License
 

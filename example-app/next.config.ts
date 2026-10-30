@@ -22,6 +22,8 @@ for (const path of candidates) {
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // The app depends on the package one directory up (file:..): trace files from there.
+  outputFileTracingRoot: resolve(here, '..'),
 }
 
 export default nextConfig
