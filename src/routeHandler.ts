@@ -27,6 +27,12 @@ export type RouteHandlerResult =
 export interface RouteHandlerOptions<TParams = Record<string, string>> {
   client?: PoliPage
   onError?: (err: unknown, ctx: RouteHandlerContext<TParams>) => Response | void
+  /**
+   * Answer a `PoliPageError` with the SDK's `toPayload()` as a JSON body
+   * (`{ code, message, status, requestId }`). Default `true`; `false` rethrows
+   * the error, so Next.js answers it like any other thrown error.
+   */
+  handleErrors?: boolean
 }
 
 export function createPoliPageRouteHandler<TParams = Record<string, string>>(
@@ -45,7 +51,7 @@ export function createPoliPageRouteHandler<TParams = Record<string, string>>(
         const custom = options.onError(err, routeCtx)
         if (custom !== undefined) return custom
       }
-      if (err instanceof PoliPageError) {
+      if (err instanceof PoliPageError && options.handleErrors !== false) {
         return poliPageErrorToResponse(err)
       }
       throw err

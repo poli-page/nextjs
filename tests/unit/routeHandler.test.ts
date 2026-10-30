@@ -103,14 +103,47 @@ describe('createPoliPageRouteHandler', () => {
     expect(r).toBe(userResponse)
   })
 
-  it('maps PoliPageError to typed JSON response', async () => {
+  it('answers a PoliPageError with its toPayload() body by default', async () => {
     const handler = createPoliPageRouteHandler(
-      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404, 'req_1') },
       { client: stubClient() },
     )
     const r = await handler(req, ctx())
     expect(r.status).toBe(404)
-    expect(await r.json()).toMatchObject({ code: 'TEMPLATE_NOT_FOUND' })
+    expect(r.headers.get('content-type')).toBe('application/json')
+    expect(await r.json()).toStrictEqual({
+      code: 'TEMPLATE_NOT_FOUND',
+      message: 'not found',
+      status: 404,
+      requestId: 'req_1',
+    })
+  })
+
+  it('answers a PoliPageError with handleErrors: true', async () => {
+    const handler = createPoliPageRouteHandler(
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
+      { client: stubClient(), handleErrors: true },
+    )
+    const r = await handler(req, ctx())
+    expect(r.status).toBe(404)
+  })
+
+  it('rethrows a PoliPageError with handleErrors: false', async () => {
+    const err = new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404)
+    const handler = createPoliPageRouteHandler(
+      async () => { throw err },
+      { client: stubClient(), handleErrors: false },
+    )
+    await expect(handler(req, ctx())).rejects.toBe(err)
+  })
+
+  it('still uses a Response from onError with handleErrors: false', async () => {
+    const handler = createPoliPageRouteHandler(
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
+      { client: stubClient(), handleErrors: false, onError: () => new Response('custom', { status: 410 }) },
+    )
+    const r = await handler(req, ctx())
+    expect(r.status).toBe(410)
   })
 
   it('rethrows non-PoliPageError', async () => {
