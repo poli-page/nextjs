@@ -15,7 +15,6 @@ export const POST = createPoliPageRouteHandler(async ({ client }) => {
       project: 'getting-started',
       template: 'welcome',
       data: { name: 'renderToFile demo' },
-      version: '1.0.0',
     },
     OUTPUT_PATH,
   )

@@ -12,19 +12,33 @@ jobs:
       matrix:
         node: [20, 22]
         next: [14, 15]
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            example-app/package-lock.json
       - run: npm ci
       - run: npm install --no-save next@^${{ matrix.next }}
       - run: npm run typecheck
-        if: hashFiles('tsconfig.json') != ''
       - run: npm run lint
-        if: hashFiles('eslint.config.js') != ''
-      - run: npm test
-        if: hashFiles('vitest.config.ts') != ''
       - run: npm run build
-        if: hashFiles('tsup.config.ts') != ''
+      # The contract tests run the example app, built against this build of the package.
+      - name: Install the example app
+        run: npm ci
+        working-directory: example-app
+      - name: Build the example app
+        run: npm run build
+        working-directory: example-app
+      - name: API contract
+        id: contract
+        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
+      - name: Test
+        run: npm test
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}

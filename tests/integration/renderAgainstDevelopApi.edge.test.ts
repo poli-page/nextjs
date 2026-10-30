@@ -45,7 +45,6 @@ describe('edge-runtime compatibility', () => {
           project: 'getting-started',
           template: 'welcome',
           data: {},
-          version: '1.0.0',
         })
         return bytes as Uint8Array
       },
@@ -62,7 +61,8 @@ describe('edge-runtime compatibility', () => {
 })
 
 const apiKey = process.env.POLI_PAGE_API_KEY ?? ''
-const skip = !apiKey.startsWith('pp_test_')
+// Only ever render with a sandbox key: other environments are counted.
+const skip = !apiKey.startsWith('pp_sandbox_')
 
 describe.skipIf(skip)('render welcome against live API (edge runtime)', () => {
   it('returns a PDF', async () => {
@@ -76,7 +76,6 @@ describe.skipIf(skip)('render welcome against live API (edge runtime)', () => {
       project: 'getting-started',
       template: 'welcome',
       data: { name: 'nextjs integration test (edge)' },
-      version: '1.0.0',
     })
     expect(bytes.byteLength).toBeGreaterThan(1000)
     expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe('%PDF-')

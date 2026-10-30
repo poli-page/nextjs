@@ -6,7 +6,6 @@ const pdf = await client.render.pdf({
   project: 'getting-started',
   template: 'welcome',
   data: { name: 'renderToFile demo' },
-  version: '1.0.0',
 })
 
 const outPath = '/tmp/poli-page-demo-file.pdf'

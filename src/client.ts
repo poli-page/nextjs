@@ -19,8 +19,13 @@ export interface PoliPageClientOptions {
   onError?: (err: PoliPageError) => void
 }
 
-const KEY_PATTERN = /^pp_(test|live)_/
-const memo = new Map<string, PoliPage>()
+// `pp_{env}_{32 hex}`, where `{env}` is lowercase, letter first, single inner
+// hyphens, at most 20 characters. The API is the only authority on keys: a
+// malformed key only earns a warning.
+const KEY_PATTERN = /^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$/
+// The last client built from the environment, with the configuration it was built from.
+let memo: { key: string; client: PoliPage } | undefined
+const warnedKeys = new Set<string>()
 
 export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage {
   if (options !== undefined) return build(options)
@@ -28,10 +33,18 @@ export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage 
   if (apiKey === '') {
     throw new Error('POLI_PAGE_API_KEY is not set. Pass apiKey: explicitly or set the env var.')
   }
-  const existing = memo.get(apiKey)
-  if (existing !== undefined) return existing
+  // Reuse the last client while the environment configuration is unchanged: a
+  // changed key, base URL or retry setting gets a new client.
+  const key = JSON.stringify([
+    apiKey,
+    process.env.POLI_PAGE_BASE_URL,
+    process.env.POLI_PAGE_MAX_RETRIES,
+    process.env.POLI_PAGE_RETRY_DELAY,
+    process.env.POLI_PAGE_TIMEOUT,
+  ])
+  if (memo?.key === key) return memo.client
   const client = build({ apiKey })
-  memo.set(apiKey, client)
+  memo = { key, client }
   return client
 }
 
@@ -40,9 +53,7 @@ function build(options: PoliPageClientOptions): PoliPage {
   if (apiKey === '') {
     throw new Error('apiKey is required.')
   }
-  if (!KEY_PATTERN.test(apiKey)) {
-    throw new Error(`apiKey must start with pp_test_ or pp_live_, got: ${apiKey.slice(0, 8)}…`)
-  }
+  if (!KEY_PATTERN.test(apiKey)) warnMalformedKey(apiKey)
   const baseUrl = options.baseUrl ?? process.env.POLI_PAGE_BASE_URL
   const maxRetries = options.maxRetries ?? parsePositiveInt(process.env.POLI_PAGE_MAX_RETRIES)
   const retryDelay = options.retryDelay ?? parsePositiveInt(process.env.POLI_PAGE_RETRY_DELAY)
@@ -61,6 +72,17 @@ function build(options: PoliPageClientOptions): PoliPage {
   return new PoliPage(sdkOptions)
 }
 
+function warnMalformedKey(apiKey: string): void {
+  if (warnedKeys.has(apiKey)) return
+  warnedKeys.add(apiKey)
+  // No part of the key, not even a `pp_{env}_` prefix: a mis-pasted secret
+  // fragment can look like an environment name.
+  console.warn(
+    '[@poli-page/nextjs] The API key does not match the expected format pp_{environment}_{32 lowercase hex characters}. ' +
+      'Starting anyway: the Poli Page API decides whether the key is valid.',
+  )
+}
+
 function parsePositiveInt(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined
   const n = Number(raw)
@@ -69,5 +91,6 @@ function parsePositiveInt(raw: string | undefined): number | undefined {
 
 /** @internal — tests only. Do not use in application code. */
 export function __resetMemoForTests(): void {
-  memo.clear()
+  memo = undefined
+  warnedKeys.clear()
 }

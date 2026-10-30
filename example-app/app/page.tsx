@@ -89,23 +89,6 @@ export default function DemoPage(): JSX.Element {
   const onRenderPdf = useCallback(() => renderPdfLike('/render/pdf', 'pdf', 'r1'), [renderPdfLike])
   const onRenderStream = useCallback(() => renderPdfLike('/render/stream', 'pdf (stream)', 'r1'), [renderPdfLike])
 
-  const onRenderPreview = useCallback(() => {
-    return runAction('preview', 'r1', false, async set => {
-      const r = await fetch('/render/preview')
-      const html = await r.text()
-      if (!r.ok) {
-        set({ status: 'error', label: 'output', meta: `HTTP ${r.status}`, content: { kind: 'pre', text: html } })
-        return
-      }
-      set({
-        status: 'ok',
-        label: 'html preview',
-        meta: `${html.length.toLocaleString()} chars`,
-        content: { kind: 'srcdoc', srcDoc: html },
-      })
-    })
-  }, [runAction])
-
   const onDocCreate = useCallback(() => {
     return runAction('doc-create', 'r2', false, async set => {
       const r = await fetch('/documents', { method: 'POST' })
@@ -195,9 +178,9 @@ export default function DemoPage(): JSX.Element {
     })
   }, [runAction])
 
-  const onBadVersion = useCallback(() => {
-    return runAction('bad-version', 'r4', false, async set => {
-      const r = await fetch('/errors/bad-version')
+  const onNotFound = useCallback(() => {
+    return runAction('not-found', 'r4', false, async set => {
+      const r = await fetch('/errors/not-found')
       const body = await r.text()
       set({
         status: r.ok ? 'ok' : 'error',
@@ -232,12 +215,11 @@ export default function DemoPage(): JSX.Element {
         <Section
           title="Render"
           label="01 · instant"
-          desc={<>Three SDK entry points for rendering the <code>getting-started/welcome</code> template: binary PDF (<code>render.pdf</code>), streamed PDF (<code>render.pdfStream</code>), and HTML preview (<code>render.preview</code>).</>}
+          desc={<>Two SDK entry points for rendering the <code>getting-started/welcome</code> template: binary PDF (<code>render.pdf</code>) and streamed PDF (<code>render.pdfStream</code>).</>}
         >
           <div className="actions">
             <ActionButton action="pdf" loading={loading} onClick={onRenderPdf}>Render PDF</ActionButton>
             <ActionButton action="pdf-pdf (stream)" loading={loading} onClick={onRenderStream}>Via stream</ActionButton>
-            <ActionButton action="preview" loading={loading} onClick={onRenderPreview}>HTML preview</ActionButton>
           </div>
           <ResultPane state={panels.r1} />
         </Section>
@@ -272,10 +254,10 @@ export default function DemoPage(): JSX.Element {
         <Section
           title="Error handling"
           label="04 · typed exceptions"
-          desc={<>Sends a deliberately malformed version string to trigger <code>INVALID_VERSION_FORMAT</code>. The integration&apos;s typed error mapping propagates the API code, message, and request-id straight through.</>}
+          desc={<>Renders the <code>getting-started</code> project&apos;s <code>does-not-exist</code> template to trigger a 404 <code>TEMPLATE_NOT_FOUND</code>. The integration&apos;s typed error mapping propagates the API code, status, message, and request-id straight through.</>}
         >
           <div className="actions">
-            <ActionButton action="bad-version" loading={loading} onClick={onBadVersion}>Trigger 400</ActionButton>
+            <ActionButton action="not-found" loading={loading} onClick={onNotFound}>Trigger 404</ActionButton>
           </div>
           <ResultPane state={panels.r4} />
         </Section>

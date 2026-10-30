@@ -5,7 +5,7 @@ import { createPoliPageRouteHandler } from '../../src/routeHandler.js'
 import { __resetMemoForTests } from '../../src/client.js'
 
 const stubClient = (): PoliPage =>
-  ({ render: { pdf: vi.fn(), preview: vi.fn(), pdfStream: vi.fn() } } as unknown as PoliPage)
+  ({ render: { pdf: vi.fn(), pdfStream: vi.fn() } } as unknown as PoliPage)
 
 const pdfBytes = new TextEncoder().encode('%PDF-1.4\nstub\n')
 const req = new Request('http://localhost/test')
@@ -103,14 +103,116 @@ describe('createPoliPageRouteHandler', () => {
     expect(r).toBe(userResponse)
   })
 
-  it('maps PoliPageError to typed JSON response', async () => {
+  it('answers a PoliPageError with its toPayload() body by default', async () => {
     const handler = createPoliPageRouteHandler(
-      async () => { throw new PoliPageError('bad', 'INVALID_VERSION_FORMAT', 400) },
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404, 'req_1') },
       { client: stubClient() },
     )
     const r = await handler(req, ctx())
-    expect(r.status).toBe(400)
-    expect(await r.json()).toMatchObject({ code: 'INVALID_VERSION_FORMAT' })
+    expect(r.status).toBe(404)
+    expect(r.headers.get('content-type')).toBe('application/json')
+    expect(await r.json()).toStrictEqual({
+      code: 'TEMPLATE_NOT_FOUND',
+      message: 'not found',
+      status: 404,
+      requestId: 'req_1',
+    })
+  })
+
+  it('answers a PoliPageError with handleErrors: true', async () => {
+    const handler = createPoliPageRouteHandler(
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
+      { client: stubClient(), handleErrors: true },
+    )
+    const r = await handler(req, ctx())
+    expect(r.status).toBe(404)
+  })
+
+  it('rethrows a PoliPageError with handleErrors: false', async () => {
+    const err = new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404)
+    const handler = createPoliPageRouteHandler(
+      async () => { throw err },
+      { client: stubClient(), handleErrors: false },
+    )
+    await expect(handler(req, ctx())).rejects.toBe(err)
+  })
+
+  it('still uses a Response from onError with handleErrors: false', async () => {
+    const handler = createPoliPageRouteHandler(
+      async () => { throw new PoliPageError('not found', 'TEMPLATE_NOT_FOUND', 404) },
+      { client: stubClient(), handleErrors: false, onError: () => new Response('custom', { status: 410 }) },
+    )
+    const r = await handler(req, ctx())
+    expect(r.status).toBe(410)
+  })
+
+  describe('stream results', () => {
+    const DOWNLOAD_FAILED = new PoliPageError('Failed to download PDF: HTTP 403', 'DOWNLOAD_FAILED', 403)
+
+    /** A stream like render.pdfStream()'s: `chunks` first, then `err`. */
+    const failingStream = (chunks: readonly Uint8Array[], err: Error): ReadableStream<Uint8Array> => {
+      let i = 0
+      return new ReadableStream<Uint8Array>({
+        pull(c) {
+          const chunk = chunks[i++]
+          if (chunk === undefined) c.error(err)
+          else c.enqueue(chunk)
+        },
+      })
+    }
+
+    it('answers a PoliPageError raised before the first chunk of { kind: "stream" }', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => ({ kind: 'stream' as const, stream: failingStream([], DOWNLOAD_FAILED), filename: 'x.pdf' }),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(403)
+      expect(r.headers.get('content-type')).toBe('application/json')
+      expect(r.headers.get('content-disposition')).toBeNull()
+      expect(await r.json()).toStrictEqual(DOWNLOAD_FAILED.toPayload())
+    })
+
+    it('answers a PoliPageError raised before the first chunk of a bare ReadableStream', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => failingStream([], DOWNLOAD_FAILED),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(403)
+      expect(await r.json()).toStrictEqual(DOWNLOAD_FAILED.toPayload())
+    })
+
+    it('rethrows a stream error before the first chunk with handleErrors: false', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => failingStream([], DOWNLOAD_FAILED),
+        { client: stubClient(), handleErrors: false },
+      )
+      await expect(handler(req, ctx())).rejects.toBe(DOWNLOAD_FAILED)
+    })
+
+    it('errors the body after the first chunk, so a truncated PDF never ends cleanly', async () => {
+      const handler = createPoliPageRouteHandler(
+        async () => ({ kind: 'stream' as const, stream: failingStream([pdfBytes], DOWNLOAD_FAILED) }),
+        { client: stubClient() },
+      )
+      const r = await handler(req, ctx())
+      expect(r.status).toBe(200)
+      expect(r.headers.get('content-type')).toBe('application/pdf')
+      const reader = r.body?.getReader()
+      expect(await reader?.read()).toEqual({ done: false, value: pdfBytes })
+      await expect(reader?.read()).rejects.toBe(DOWNLOAD_FAILED)
+    })
+
+    it('re-emits every chunk of a stream that succeeds', async () => {
+      const second = new TextEncoder().encode('%%EOF\n')
+      const stream = new ReadableStream<Uint8Array>({
+        start(c) { c.enqueue(pdfBytes); c.enqueue(second); c.close() },
+      })
+      const handler = createPoliPageRouteHandler(async () => stream, { client: stubClient() })
+      const r = await handler(req, ctx())
+      expect(new Uint8Array(await r.arrayBuffer())).toEqual(new Uint8Array([...pdfBytes, ...second]))
+    })
   })
 
   it('rethrows non-PoliPageError', async () => {
@@ -136,7 +238,7 @@ describe('createPoliPageRouteHandler', () => {
   })
 
   it('uses the default client when none is passed', async () => {
-    process.env.POLI_PAGE_API_KEY = 'pp_test_default'
+    process.env.POLI_PAGE_API_KEY = 'pp_sandbox_0123456789abcdef0123456789abcdef'
     let captured: PoliPage | undefined
     const handler = createPoliPageRouteHandler(async ({ client }) => { captured = client; return pdfBytes })
     await handler(req, ctx())
@@ -158,7 +260,7 @@ describe('createPoliPageRouteHandler', () => {
   it('falls through to default mapping when onError returns void on a PoliPageError', async () => {
     const onError = vi.fn(() => undefined)
     const handler = createPoliPageRouteHandler(
-      async () => { throw new PoliPageError('bad', 'INVALID_VERSION_FORMAT', 400) },
+      async () => { throw new PoliPageError('bad', 'VALIDATION_ERROR', 400) },
       { client: stubClient(), onError },
     )
     const r = await handler(req, ctx())
