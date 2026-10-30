@@ -32,10 +32,19 @@ export function createPoliPageClient(options?: PoliPageClientOptions): PoliPage 
   if (apiKey === '') {
     throw new Error('POLI_PAGE_API_KEY is not set. Pass apiKey: explicitly or set the env var.')
   }
-  const existing = memo.get(apiKey)
+  // One client per environment configuration: a changed key, base URL or retry
+  // setting gets a new client instead of the one built from the old values.
+  const key = JSON.stringify([
+    apiKey,
+    process.env.POLI_PAGE_BASE_URL,
+    process.env.POLI_PAGE_MAX_RETRIES,
+    process.env.POLI_PAGE_RETRY_DELAY,
+    process.env.POLI_PAGE_TIMEOUT,
+  ])
+  const existing = memo.get(key)
   if (existing !== undefined) return existing
   const client = build({ apiKey })
-  memo.set(apiKey, client)
+  memo.set(key, client)
   return client
 }
 

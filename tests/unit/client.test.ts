@@ -156,6 +156,29 @@ describe('createPoliPageClient', () => {
     expect(PoliPageMock).toHaveBeenCalledTimes(2)
   })
 
+  it('builds a new client when an env setting changes', () => {
+    delete process.env.POLI_PAGE_MAX_RETRIES
+    delete process.env.POLI_PAGE_RETRY_DELAY
+    delete process.env.POLI_PAGE_TIMEOUT
+    process.env.POLI_PAGE_API_KEY = sandboxKey('a')
+    process.env.POLI_PAGE_BASE_URL = 'http://127.0.0.1:4001'
+    const a = createPoliPageClient()
+    process.env.POLI_PAGE_BASE_URL = 'http://127.0.0.1:4002'
+    const b = createPoliPageClient()
+    process.env.POLI_PAGE_TIMEOUT = '5000'
+    const c = createPoliPageClient()
+    const d = createPoliPageClient()
+    expect(a).not.toBe(b)
+    expect(b).not.toBe(c)
+    expect(c).toBe(d)
+    expect(PoliPageMock).toHaveBeenCalledTimes(3)
+    expect(PoliPageMock).toHaveBeenLastCalledWith({
+      apiKey: sandboxKey('a'),
+      baseUrl: 'http://127.0.0.1:4002',
+      timeout: 5000,
+    })
+  })
+
   it('forwards optional fields (baseUrl, timeout, retries) and listeners', () => {
     const onRequest = vi.fn()
     createPoliPageClient({
