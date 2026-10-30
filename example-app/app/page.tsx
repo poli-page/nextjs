@@ -208,7 +208,7 @@ export default function DemoPage(): JSX.Element {
           <p className="tagline">Your Next.js integration, your dashboard. Every SDK feature, one click away.</p>
           <div className="status-row">
             <span className="dot"></span>
-            <span>poli-page/nextjs v0.1.0</span>
+            <span>poli-page/nextjs v0.11.0</span>
           </div>
         </header>
 
@@ -272,7 +272,7 @@ export default function DemoPage(): JSX.Element {
         </Section>
 
         <footer>
-          <span>poli-page/nextjs · v0.1.0</span>
+          <span>poli-page/nextjs · v0.11.0</span>
           <span className="links"><a href="https://docs.poli.page" target="_blank" rel="noopener noreferrer">docs.poli.page</a></span>
         </footer>
       </div>

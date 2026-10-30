@@ -181,13 +181,15 @@ npm run dev
 
 | Package | Next.js | Node |
 |---|---|---|
-| `0.1.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
+| `0.11.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
 
 Pages Router is not supported. The package ships dual ESM + CJS and runs in both the Node and Edge runtimes.
 
 ## Contributing
 
 `npm run typecheck`, `npm run lint`, `npm run build` and `npm test` are what CI runs.
+
+Releases are cut by pushing a `vX.Y.Z` tag; see [RELEASING.md](RELEASING.md).
 
 ### Contract tests
 

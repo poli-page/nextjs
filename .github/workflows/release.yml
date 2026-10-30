@@ -1,0 +1,192 @@
+name: Release
+
+# Tag-triggered release. Push a tag `vX.Y.Z` to run checks, then (after manual
+# approval on the `npm-publish` environment) publish to npm via OIDC Trusted
+# Publishing with Sigstore provenance, and create the GitHub Release.
+#
+# Flow:
+#   1. Bump version in package.json + move CHANGELOG [Unreleased] -> [X.Y.Z]; merge to main.
+#   2. git tag vX.Y.Z && git push origin vX.Y.Z
+#   3. `verify` runs all checks on the tagged commit.
+#   4. `publish` waits for a required reviewer to approve, then publishes.
+#
+# Auth: npm Trusted Publisher must be configured for THIS repo + workflow file
+# (release.yml) + environment (npm-publish). No NPM_TOKEN secret is used.
+# See RELEASING.md.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example-app/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag $TAG -> version $VERSION"
+
+      - name: Guard A — tag matches package.json
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$PKG_VERSION" != "${{ steps.ver.outputs.version }}" ]]; then
+            echo "::error::package.json ($PKG_VERSION) does not match tag (${{ steps.ver.outputs.version }})"
+            echo "Refusing: bump package.json to ${{ steps.ver.outputs.version }} (or retag) before releasing." >&2
+            exit 1
+          fi
+          echo "package.json matches tag ($PKG_VERSION) — OK."
+
+      - name: Guard B — CHANGELOG has the version section
+        run: |
+          set -euo pipefail
+          V="${{ steps.ver.outputs.version }}"
+          if ! awk -v h="## [$V]" 'index($0, h) == 1 {found=1} END {exit !found}' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$V]' section"
+            echo "Refusing: move [Unreleased] to [$V] in CHANGELOG.md before releasing." >&2
+            exit 1
+          fi
+          echo "CHANGELOG.md has a [$V] section — OK."
+
+      - name: Guard C — version not already on npm
+        run: |
+          set -euo pipefail
+          V="${{ steps.ver.outputs.version }}"
+          if npm view "@poli-page/nextjs@$V" version >/dev/null 2>&1; then
+            echo "::error::@poli-page/nextjs@$V already exists on npm"
+            echo "Refusing: that version is already published." >&2
+            exit 1
+          fi
+          echo "@poli-page/nextjs@$V is not yet published — OK."
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # The contract tests run the example app, built against this build of the package.
+      - name: Install the example app
+        run: npm ci
+        working-directory: example-app
+
+      - name: Build the example app
+        run: npm run build
+        working-directory: example-app
+
+      - name: API contract
+        id: contract
+        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
+
+      - name: Test
+        run: npm test
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}
+
+      - name: Pack and show contents
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack | tail -n 1)"
+          echo "Tarball: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+          tar -tzf "$TARBALL"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: write   # create the GitHub Release
+      id-token: write   # OIDC for npm provenance + Trusted Publishing
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm (OIDC Trusted Publishing needs >= 11.5)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Compute dist-tag
+        id: disttag
+        run: |
+          set -euo pipefail
+          V="${GITHUB_REF_NAME#v}"
+          if [[ "$V" == *-* ]]; then TAG=next; else TAG=latest; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Publishing $V to dist-tag $TAG"
+
+      - name: Publish to npm with provenance
+        run: npm publish --access public --provenance --tag "${{ steps.disttag.outputs.tag }}"
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          set -euo pipefail
+          V="${{ steps.disttag.outputs.version }}"
+          # Print lines between "## [V]" and the next "## [" heading or link reference.
+          awk -v ver="$V" '
+            index($0, "## [" ver "]") == 1 {flag=1; next}
+            flag && /^## \[/ {flag=0}
+            flag && /^\[[^]]+\]: / {flag=0}
+            flag {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [[ ! -s RELEASE_NOTES.md ]]; then
+            echo "See CHANGELOG.md for details." > RELEASE_NOTES.md
+          fi
+          echo "----- notes -----"; cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          V="${{ steps.disttag.outputs.version }}"
+          PRERELEASE=""
+          if [[ "${{ steps.disttag.outputs.tag }}" == "next" ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "v$V" \
+            --title "v$V" \
+            --notes-file RELEASE_NOTES.md \
+            $PRERELEASE
