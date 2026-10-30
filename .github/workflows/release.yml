@@ -11,7 +11,8 @@ name: Release
 #   4. `publish` waits for a required reviewer to approve, then publishes.
 #
 # Re-running the workflow for a tag is safe: a version already on npm is not
-# published again, and an existing GitHub Release is left as is.
+# published again, and an existing GitHub Release is left as is. A version
+# already on npm whose gitHead is not the tagged commit fails the run instead.
 #
 # Auth: npm Trusted Publisher must be configured for THIS repo + workflow file
 # (release.yml) + environment (npm-publish). No NPM_TOKEN secret is used.
@@ -87,13 +88,21 @@ jobs:
           fi
           echo "CHANGELOG.md has a [$VERSION] section — OK."
 
-      - name: Check — version already on npm
+      - name: Check — version already on npm, from this commit
         env:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
           if npm view "@poli-page/nextjs@$VERSION" version >/dev/null 2>&1; then
-            echo "::notice::@poli-page/nextjs@$VERSION is already on npm: publish will skip it and only create the GitHub Release if missing."
+            # Why: a version already on npm is skipped only when it was published from
+            # this tag's commit; npm records that commit as the version's gitHead.
+            PUBLISHED_HEAD="$(npm view "@poli-page/nextjs@$VERSION" gitHead)"
+            if [[ "$PUBLISHED_HEAD" != "$GITHUB_SHA" ]]; then
+              echo "::error::@poli-page/nextjs@$VERSION is already on npm, published from commit ${PUBLISHED_HEAD:-unknown}, not from this tag's commit $GITHUB_SHA"
+              echo "Refusing: release a new version instead." >&2
+              exit 1
+            fi
+            echo "::notice::@poli-page/nextjs@$VERSION is already on npm from this commit: publish will skip it and only create the GitHub Release if missing."
           else
             echo "@poli-page/nextjs@$VERSION is not yet published — OK."
           fi
@@ -183,7 +192,15 @@ jobs:
         run: |
           set -euo pipefail
           if npm view "@poli-page/nextjs@$VERSION" version >/dev/null 2>&1; then
-            echo "::notice::@poli-page/nextjs@$VERSION is already on npm; not publishing it again."
+            # Why: a version already on npm is skipped only when it was published from
+            # this tag's commit; npm records that commit as the version's gitHead.
+            PUBLISHED_HEAD="$(npm view "@poli-page/nextjs@$VERSION" gitHead)"
+            if [[ "$PUBLISHED_HEAD" != "$GITHUB_SHA" ]]; then
+              echo "::error::@poli-page/nextjs@$VERSION is already on npm, published from commit ${PUBLISHED_HEAD:-unknown}, not from this tag's commit $GITHUB_SHA"
+              echo "Refusing: release a new version instead." >&2
+              exit 1
+            fi
+            echo "::notice::@poli-page/nextjs@$VERSION is already on npm from this commit; not publishing it again."
           else
             npm publish --access public --provenance --tag "$DIST_TAG"
           fi

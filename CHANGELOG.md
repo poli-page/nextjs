@@ -4,6 +4,9 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ## [Unreleased]
 
+### Changed
+- Release workflow: a version already on npm is skipped only when npm's `gitHead` for it is the tagged commit. Otherwise `verify` and `publish` fail instead of creating a GitHub Release for code that is not on npm.
+
 ## [0.11.0] - 2026-10-30
 
 First published release. It requires `@poli-page/sdk` `^0.11.0`, hence the version number. The `0.1.0` section that used to sit here was never released; its entries are merged below, and the **Breaking** markers describe changes against that unreleased code.
