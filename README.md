@@ -19,8 +19,9 @@ This package adapts [Poli Page](https://poli.page) to the Next.js App Router. Yo
 
 ## Requirements
 
-- Node.js `>=18.18.0`
+- Node.js `>=20.18.0`
 - Next.js `>=13.4.0` (App Router)
+- [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk) `^0.11.0` (installed with the package): environment keys, no template versions
 - TypeScript `>=5.4` (optional, but the public types assume it)
 
 ## Install
@@ -87,7 +88,7 @@ export const poliPage = createPoliPageClient({
 })
 ```
 
-The no-arg form (`createPoliPageClient()`) memoises one instance per API key; passing options bypasses the memo.
+The no-arg form (`createPoliPageClient()`) memoises one instance per environment configuration (the `POLI_PAGE_*` variables above); passing options bypasses the memo.
 
 ## API at a glance
 
@@ -111,11 +112,35 @@ The SDK raises a single `PoliPageError` class. You discriminate failure modes th
 - **Request rejected** — `err.isValidationError()` (HTTP 400) or any 4xx/5xx with a render-related `code`.
 - **Network / transport** — `err.isNetworkError()` (DNS, connection refused, TLS, timeout — no `status`).
 
-`createPoliPageRouteHandler` catches `PoliPageError` and turns it into a JSON `Response` (`{ code, message, requestId }`) with the SDK's status code; 4xx stays 4xx, 5xx stays 5xx, network/timeout becomes 502. Anything else bubbles to your `error.tsx` boundary.
+### Error handler
+
+`createPoliPageRouteHandler` handles `PoliPageError` by default: it answers with the SDK's `err.toPayload()` as the JSON body (`Content-Type: application/json`, `Cache-Control: no-store, private`):
+
+```json
+{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
+```
+
+| Error | HTTP status | Body `status` |
+|---|---|---|
+| API error (4xx, 5xx) | the API's status | the API's status |
+| `network_error` | `503` | `503` |
+| `timeout` | `504` | `504` |
+| SDK error with no status (e.g. `aborted`) | `500` | `null` |
+
+`requestId` is the API's `x-request-id`, or `null` when there is none. Anything that is not a `PoliPageError` bubbles to Next.js as usual.
+
+To handle the errors yourself, turn it off for a route with `handleErrors: false`: the `PoliPageError` is then rethrown, and Next.js answers it like any other error. `options.onError` runs first either way, and a `Response` it returns is used as the answer.
+
+```ts
+export const GET = createPoliPageRouteHandler(handler, { handleErrors: false })
+```
+
+Or catch a specific error inside the handler:
 
 ```ts
 // app/invoices/[id]/route.ts
-import { PoliPageError } from '@poli-page/nextjs'
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+import { PoliPageError } from '@poli-page/sdk'
 
 export const GET = createPoliPageRouteHandler(async ({ client }) => {
   try {
@@ -129,13 +154,15 @@ export const GET = createPoliPageRouteHandler(async ({ client }) => {
 })
 ```
 
-Pass `options.onError` to intercept errors before the default mapping.
 
 ## Example app
 
 A Next 15 App Router demo lives in [`example-app/`](example-app/). It covers every SDK demo step (`render.pdf`, `render.pdfStream`, `render.document`, `documents.get` redirect, `documents.thumbnails`, `documents.preview`, `documents.delete`, plus a `GET /errors/not-found` route that answers `404 TEMPLATE_NOT_FOUND`) and includes an interactive dashboard at `/` and a standalone `npm run render-to-file` script.
 
+It depends on this repository's package (`file:..`), so build the package first:
+
 ```bash
+npm install && npm run build
 cd example-app
 npm install
 npm run dev
@@ -152,13 +179,24 @@ npm run dev
 
 | Package | Next.js | Node |
 |---|---|---|
-| `0.1.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=18.18.0` (`18` / `20` / `22`) |
+| `0.1.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
 
 Pages Router is not supported. The package ships dual ESM + CJS and runs in both the Node and Edge runtimes.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+`npm run typecheck`, `npm run lint`, `npm run build` and `npm test` are what CI runs.
+
+### Contract tests
+
+`tests/contract/contract.test.ts` runs the integration cases (`impl.*`) of the [Poli Page API contract](https://github.com/poli-page/api-contract) against the example app, served by a Next.js production server started from its build, with its SDK pointed at a local mock API. CI runs them against the contract version pinned in `.github/workflows/ci.yml`. Locally, build the package and the example app, then point `POLI_CONTRACT` at a `contract.json` (without it, the contract tests are skipped):
+
+```bash
+npm run build && (cd example-app && npm ci && npm run build)
+POLI_CONTRACT=/path/to/contract.json npm test
+```
+
+`tests/contract-skip.json` lists the cases allowed to fail, each with its reason.
 
 ## License
 

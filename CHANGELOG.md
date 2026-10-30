@@ -7,8 +7,14 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 ### Changed
 
 - **Breaking:** `createPoliPageClient()` accepts API keys from any environment (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). It no longer throws on a key from an unknown environment: a key that does not match `pp_{environment}_{32 hex characters}` logs one warning per key (naming the expected format, showing no part of the key, not even its `pp_{environment}_` prefix) and the client starts anyway, leaving the API to answer `401 INVALID_API_KEY`. A missing or empty key still throws.
-- **Breaking:** requires the `@poli-page/sdk` release without template versions. Render inputs no longer take `version`, and the `ProjectModeInput` type re-export is replaced by `RenderInput`.
-- Example app: renders `getting-started/welcome` with a `pp_sandbox_…` key and no `version`; its error demo is now `GET /errors/not-found` (template `does-not-exist`, `404 TEMPLATE_NOT_FOUND`). The integration tests run only with a `pp_sandbox_…` key.
+- **Breaking:** requires `@poli-page/sdk` `^0.11.0`, the first SDK release with environment keys and no template versions. Render inputs no longer take `version`, and the `ProjectModeInput` type re-export is replaced by `RenderInput`.
+- **Breaking:** the route handler answers a `PoliPageError` with the SDK's `toPayload()` as is: `{ code, message, status, requestId }`, `Content-Type: application/json` (no `charset` parameter), and the payload's `status` as the HTTP status: the API's status, `503` for `network_error`, `504` for `timeout`, or `500` for an SDK error with no status, whose body now keeps `status: null` (it said `500`).
+- Example app: depends on this repository's package (`file:..`) and commits its lockfile; renders `getting-started/welcome` with a `pp_sandbox_…` key and no `version`; its error demo is now `GET /errors/not-found` (template `does-not-exist`, `404 TEMPLATE_NOT_FOUND`). The integration tests run only with a `pp_sandbox_…` key.
+
+### Added
+
+- `createPoliPageRouteHandler(handler, { handleErrors: false })` turns off the default `PoliPageError` handling for a route: the error is rethrown to Next.js.
+- Contract tests: CI runs the integration cases of the Poli Page API contract (v1.3.0) against the example app, built and served by a Next.js production server.
 
 ### Removed
 
@@ -16,6 +22,9 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 - Example app: the `/render/preview` route (including its inline `?html=` branch), its button and its README row; the `/errors/bad-version` route.
 
 ### Fixed
+
+- `createPoliPageClient()` (no arguments) memoised its client by API key only, so a changed `POLI_PAGE_BASE_URL`, `POLI_PAGE_TIMEOUT`, `POLI_PAGE_MAX_RETRIES` or `POLI_PAGE_RETRY_DELAY` kept the client built from the old values. The memo is now keyed on all of them.
+- README: the Node.js requirement is `>=20.18.0`, as `engines` says.
 
 - `pdfResponse()` / route handler: the `Content-Disposition` filename is now escaped per RFC 6266 / RFC 9110 (`\` and `"` as quoted-pairs, ASCII fallback included) and stripped of control characters (CR/LF, TAB, DEL, C1), so a filename can no longer break the header or inject parameters.
 

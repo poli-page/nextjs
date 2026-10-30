@@ -7,7 +7,7 @@ A self-contained Next 15 App Router app that exercises every public surface of `
 A Poli Page sandbox API key (`pp_sandbox_…`). Put it in `.env` at the **parent repo root** (`../.env`); `POLI_PAGE_BASE_URL` is optional:
 
 ```bash
-# /Users/.../nextjs/.env
+# ../.env
 POLI_PAGE_API_KEY=pp_sandbox_…
 # POLI_PAGE_BASE_URL=https://api.poli.page
 ```
@@ -16,12 +16,12 @@ The demo renders the `getting-started` project's `welcome` template, which every
 
 ## Setup
 
+The app depends on the package in the parent directory (`"@poli-page/nextjs": "file:.."`) and on `@poli-page/sdk` `^0.11.0` from npm. Build the package first, then install the app:
+
 ```bash
-cd example-app
+(cd .. && npm install && npm run build)
 npm install
 ```
-
-> **Note**: while `@poli-page/nextjs` is unpublished, it resolves via `npm link`: from the parent repo run `npm link` (registers the local nextjs package globally), then from this directory `npm link @poli-page/nextjs`. Until the next `@poli-page/sdk` release is published, `@poli-page/sdk` installs from the build vendored in `../vendor/`.
 
 ## Run
 
@@ -54,6 +54,6 @@ Runs the standalone `scripts/render-to-file.ts` via `tsx`. Demonstrates calling 
 
 ## Architecture
 
-- Every route is a one-liner: `export const GET = createPoliPageRouteHandler(async ({ client, params }) => …)`. The factory builds the SDK client from `process.env`, materialises the discriminated-union return into a `Response`, and maps any thrown `PoliPageError` to typed JSON.
+- Every route is a one-liner: `export const GET = createPoliPageRouteHandler(async ({ client, params }) => …)`. The factory builds the SDK client from `process.env`, materialises the discriminated-union return into a `Response`, and answers any thrown `PoliPageError` with its `toPayload()` JSON body (`{ code, message, status, requestId }`).
 - The dashboard at `/` is a single Client Component (`app/page.tsx`) with inline CSS — same aesthetic and state machine as the [`symfony-bundle`](https://github.com/poli-page/symfony-bundle) demo so the two integrations feel like one product.
 - `next.config.ts` shims env loading from the parent repo's `.env` if present (workspace pattern; no per-app `.env.local` needed).
