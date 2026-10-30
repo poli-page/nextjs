@@ -31,6 +31,15 @@ export default defineConfig({
       },
       {
         test: {
+          // The API contract's impl cases, against the built example app (tests/contract).
+          name: 'contract',
+          include: ['tests/contract/**/*.test.ts'],
+          environment: 'node',
+          setupFiles: ['./tests/setup.ts'],
+        },
+      },
+      {
+        test: {
           name: 'integration-node',
           include: ['tests/integration/**/*.node.test.ts'],
           environment: 'node',
