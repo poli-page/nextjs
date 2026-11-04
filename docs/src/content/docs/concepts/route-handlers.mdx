@@ -1,0 +1,69 @@
+---
+title: Route handlers
+description: How createPoliPageRouteHandler wraps an async function into an App Router GET or POST export, what it may return and where it runs.
+---
+
+`createPoliPageRouteHandler` is the integration's main entry point. You give it an async function, and it returns an App Router handler with the `(req, ctx)` signature Next.js calls: it reads the route params, builds the client, runs your function and turns its result into a `Response`.
+
+## The context
+
+Your function receives one object:
+
+- `req` is the incoming `Request`.
+- `params` is the route's dynamic segments. The factory awaits `ctx.params`, so it works whether Next.js gives a promise (Next.js 15) or a plain object.
+- `client` is the SDK client: the `client` option when you pass one, otherwise `createPoliPageClient()`.
+
+Type the params with the generic: `createPoliPageRouteHandler<{ id: string }>(...)`. The default is `Record<string, string>`.
+
+## What the function returns
+
+| Return value | Answer |
+| --- | --- |
+| `Uint8Array` or `ArrayBuffer` | A PDF response with the default headers. |
+| `ReadableStream<Uint8Array>` | A streamed PDF response. |
+| `{ kind: 'pdf', bytes, filename?, inline? }` | A PDF response. |
+| `{ kind: 'stream', stream, filename?, inline? }` | A streamed PDF response. |
+| `{ kind: 'preview', html }` | An HTML preview response. |
+| `{ kind: 'redirect', url, permanent? }` | A `302` (or `308`) redirect. |
+| `Response` | Used as is. |
+
+The `kind` forms and the bare values are built with the helpers in [Responses](../responses/). Return a `Response` when you need a status, header or body the helpers do not give.
+
+## Errors
+
+A `PoliPageError` thrown by your function is answered as JSON by default. The `onError` option sees every error first, and `handleErrors: false` rethrows `PoliPageError`s to Next.js. See [Errors](../../production/errors/).
+
+## Edge runtime
+
+Everything in the package uses Web-standard APIs only (`fetch`, `Request`, `Response`, `ReadableStream`, `TextEncoder`), with no `node:*` import and no `Buffer`. The same handler runs on Node and on the Edge runtime. To opt a route in, export the segment config:
+
+```ts
+export const runtime = 'edge'
+```
+
+Your own code in the handler has to be Edge-compatible as well.
+
+## Example
+
+```ts
+// app/invoices/[id]/route.ts
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+
+export const runtime = 'edge'
+
+export const GET = createPoliPageRouteHandler<{ id: string }>(async ({ client, params }) => ({
+  kind: 'stream',
+  stream: await client.render.pdfStream({
+    project: 'billing',
+    template: 'invoice',
+    data: { invoiceNumber: params.id },
+  }),
+  filename: `invoice-${params.id}.pdf`,
+  inline: true,
+}))
+```
+
+## See also
+- [Responses](../responses/)
+- [Client access](../client-access/)
+- [Errors](../../production/errors/)

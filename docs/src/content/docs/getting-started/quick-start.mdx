@@ -1,0 +1,40 @@
+---
+title: Quick start
+description: Return a rendered PDF from a Next.js App Router route handler with createPoliPageRouteHandler.
+---
+
+You render a document from a `route.ts` file: `createPoliPageRouteHandler` turns one async function into a `GET` or `POST` export, hands it an SDK client, and answers the PDF with the right headers.
+
+## Set the key
+
+Set `POLI_PAGE_API_KEY` as described in [Install](../install/). The route handler builds its client from the environment on the first request.
+
+## Render from a route handler
+
+Your function receives `{ req, params, client }`. `client` is the SDK client, so `client.render.pdf(...)` returns the PDF bytes. Return `{ kind: 'pdf', bytes, filename }` and the factory builds the `Response`: `Content-Type: application/pdf`, an `attachment` `Content-Disposition` with your filename, `Cache-Control: no-store, private` and `X-Content-Type-Options: nosniff`.
+
+The `getting-started` project and its `welcome` template exist in every organization's sandbox, so the example below runs with no setup. Swap in your own project and template when you have them.
+
+## Example
+
+```ts
+// app/invoices/[number]/route.ts
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+
+export const GET = createPoliPageRouteHandler<{ number: string }>(async ({ client, params }) => ({
+  kind: 'pdf',
+  bytes: await client.render.pdf({
+    project: 'billing',
+    template: 'invoice',
+    data: { invoiceNumber: params.number },
+  }),
+  filename: `invoice-${params.number}.pdf`,
+}))
+```
+
+`GET /invoices/INV-001` now returns the invoice PDF. If the render fails with a `PoliPageError`, the handler answers it as JSON instead of throwing.
+
+## See also
+- [Route handlers](../../concepts/route-handlers/)
+- [Responses](../../concepts/responses/)
+- [Errors](../../production/errors/)

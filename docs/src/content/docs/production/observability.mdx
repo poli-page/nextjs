@@ -1,0 +1,57 @@
+---
+title: Observability
+description: Log and trace Poli Page requests from Next.js with the SDK's onRequest, onResponse, onRetry and onError callbacks.
+---
+
+`createPoliPageClient` passes four optional callbacks straight to the SDK client: `onRequest`, `onResponse`, `onRetry` and `onError`. They are the integration's only observability hooks; wire them to your logger, metrics or tracer.
+
+## The callbacks
+
+- `onRequest(event)` fires before each HTTP request leaves: `event.method`, `event.url`, `event.attempt`.
+- `onResponse(event)` fires once a 2xx answer has been read in full: `event.status`, `event.durationMs`, `event.requestId`.
+- `onRetry(event)` fires when the SDK decides to retry: `event.attempt`, `event.delayMs`, and `event.reason`, the `PoliPageError` that caused it.
+- `onError(err)` fires when a request fails for good, after the retries: `err` is the `PoliPageError`.
+
+The SDK does not await the callbacks, and they cannot change the request. The package re-exports the `RetryEvent` type; the other event types come from `@poli-page/sdk`.
+
+## Pass them to the client
+
+The callbacks are client options, and options bypass the memoised client. Build one client with the callbacks in a module, then pass it to your route handlers with the `client` option, or use it directly. The environment-only `createPoliPageClient()` has no callbacks.
+
+The route handler's own `onError` option is a different hook: it handles any error your function throws and can return a `Response`. See [Errors](../errors/).
+
+## Request IDs
+
+`err.requestId` and `event.requestId` are the API's `x-request-id`. Log them: they are what Poli Page support asks for. The default error answer also sends `requestId` in its JSON body.
+
+## Example
+
+```ts
+// lib/poli-page.ts
+import { createPoliPageClient } from '@poli-page/nextjs'
+
+export const poliPage = createPoliPageClient({
+  onRequest: (event) => console.debug(`${event.method} ${event.url} attempt=${event.attempt}`),
+  onResponse: (event) => console.info(`${event.status} in ${event.durationMs}ms requestId=${event.requestId ?? '-'}`),
+  onRetry: (event) => console.warn(`retry in ${event.delayMs}ms: ${event.reason.code}`),
+  onError: (err) => console.error(`${err.code} requestId=${err.requestId ?? '-'}: ${err.message}`),
+})
+```
+
+```ts
+// app/invoices/[id]/route.ts
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+import { poliPage } from '@/lib/poli-page'
+
+export const GET = createPoliPageRouteHandler(
+  async ({ client }) => ({
+    kind: 'pdf',
+    bytes: await client.render.pdf({ project: 'billing', template: 'invoice', data: {} }),
+  }),
+  { client: poliPage },
+)
+```
+
+## See also
+- [Configuration](../../concepts/configuration/)
+- [Errors](../errors/)

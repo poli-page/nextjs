@@ -14,6 +14,10 @@ build/
 .next/
 *.log
 .npm/
+coverage/
+
+# Docs site (docs/): Astro's generated types
+docs/.astro/
 
 # Python
 __pycache__/
