@@ -27,7 +27,7 @@ Type the params with the generic: `createPoliPageRouteHandler<{ id: string }>(..
 | `{ kind: 'redirect', url, permanent? }` | A `302` (or `308`) redirect. |
 | `Response` | Used as is. |
 
-The `kind` forms and the bare values are built with the helpers in [Responses](../responses/). Return a `Response` when you need a status, header or body the helpers do not give.
+The `kind` forms are plain object literals, not helper calls. The factory passes them to the helpers described in [Responses](../responses/) (`pdfResponse`, `previewResponse`, `documentRedirectResponse`) to build the `Response`, with each helper's default headers. Return a `Response` when you need a status, header or body the helpers do not give.
 
 ## Errors
 
