@@ -62,6 +62,38 @@ describe('poliPageErrorToResponse', () => {
     })
   })
 
+  it('answers invalid_response with 502, as toPayload() maps it, though the error carries the 2xx', async () => {
+    const err = new PoliPageError(
+      'Invalid response: HTTP 200 body is not JSON',
+      'invalid_response',
+      200,
+      'req_invalid',
+    )
+    const r = poliPageErrorToResponse(err)
+    expect(r.status).toBe(502)
+    const body: unknown = await r.json()
+    expect(body).toStrictEqual({
+      code: 'invalid_response',
+      message: 'Invalid response: HTTP 200 body is not JSON',
+      status: 502,
+      requestId: 'req_invalid',
+    })
+    expect(body).toStrictEqual(err.toPayload())
+  })
+
+  it('answers io_error with 500 and keeps status null in the body', async () => {
+    const r = poliPageErrorToResponse(
+      new PoliPageError('Failed to write PDF: ./out/a.pdf: EACCES: permission denied', 'io_error'),
+    )
+    expect(r.status).toBe(500)
+    expect(await r.json()).toStrictEqual({
+      code: 'io_error',
+      message: 'Failed to write PDF: ./out/a.pdf: EACCES: permission denied',
+      status: null,
+      requestId: null,
+    })
+  })
+
   it('sets cache-control no-store on error responses', () => {
     const r = poliPageErrorToResponse(new PoliPageError('x', 'VALIDATION_ERROR', 400))
     expect(r.headers.get('cache-control')).toBe('no-store, private')

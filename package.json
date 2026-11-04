@@ -1,6 +1,6 @@
 {
   "name": "@poli-page/nextjs",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "description": "Official Next.js integration for the Poli Page PDF rendering API",
   "license": "MIT",
   "author": "Poli Page",
@@ -43,7 +43,7 @@
     "react": { "optional": true }
   },
   "dependencies": {
-    "@poli-page/sdk": "^0.11.0"
+    "@poli-page/sdk": "^0.13.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

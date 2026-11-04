@@ -21,7 +21,7 @@ This package adapts [Poli Page](https://poli.page) to the Next.js App Router. Yo
 
 - Node.js `>=20.18.0`
 - Next.js `>=13.4.0` (App Router)
-- [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk) `^0.11.0` (installed with the package): environment keys, no template versions
+- [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk) `^0.13.0` (installed with the package), the same minor as this package
 - TypeScript `>=5.4` (optional, but the public types assume it)
 
 ## Install
@@ -74,7 +74,7 @@ You configure the client through environment variables or by passing options to 
 |---|---|---|
 | `POLI_PAGE_API_KEY` | required | Your API key, for example `pp_sandbox_…`. A missing or empty key throws. A key that does not match `pp_{environment}_{32 lowercase hex characters}` logs one warning that names the expected format and shows no part of the key, and the client starts anyway: the API decides whether the key is valid (`401 INVALID_API_KEY`). |
 | `POLI_PAGE_BASE_URL` | SDK default | Override the API host. |
-| `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. |
+| `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. It also bounds the PDF download: the whole download for `render.pdf`, the wait for each chunk for `render.pdfStream`. A download that outlasts it fails with `DOWNLOAD_FAILED` (no status, so the error handler answers `500`), not `timeout`. |
 | `POLI_PAGE_MAX_RETRIES` | SDK default | Maximum retry attempts on retryable failures. |
 | `POLI_PAGE_RETRY_DELAY` | SDK default | Base delay between retries, in milliseconds. |
 
@@ -111,6 +111,8 @@ The SDK raises a single `PoliPageError` class. You discriminate failure modes th
 - **Rate limit** — `err.isRateLimitError()` (HTTP 429, after the SDK's internal retries).
 - **Request rejected** — `err.isValidationError()` (HTTP 400) or any 4xx/5xx with a render-related `code`.
 - **Network / transport** — `err.isNetworkError()` (DNS, connection refused, TLS, timeout — no `status`).
+- **Invalid response** — `code: 'invalid_response'`: a 2xx whose body is not JSON, usually from a proxy between the SDK and the API. `err.status` is that 2xx; `toPayload()` answers `502`.
+- **File write** — `code: 'io_error'` (no `status`): `renderToFile` cannot write its file.
 
 ### Error handler
 
@@ -125,7 +127,8 @@ The SDK raises a single `PoliPageError` class. You discriminate failure modes th
 | API error (4xx, 5xx) | the API's status | the API's status |
 | `network_error` | `503` | `503` |
 | `timeout` | `504` | `504` |
-| SDK error with no status (e.g. `aborted`) | `500` | `null` |
+| `invalid_response` | `502` | `502` |
+| SDK error with no status (e.g. `aborted`, `io_error`, `DOWNLOAD_FAILED`) | `500` | `null` |
 
 `requestId` is the API's `x-request-id`, or `null` when there is none. Anything that is not a `PoliPageError` bubbles to Next.js as usual.
 
@@ -179,9 +182,9 @@ npm run dev
 
 ## Compatibility
 
-| Package | Next.js | Node |
-|---|---|---|
-| `0.11.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
+| Package | `@poli-page/sdk` | Next.js | Node |
+|---|---|---|---|
+| `0.13.x` | `0.13.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
 
 Pages Router is not supported. The package ships dual ESM + CJS and runs in both the Node and Edge runtimes.
 

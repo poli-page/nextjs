@@ -4,12 +4,9 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ## [Unreleased]
 
-### Changed
-- Release workflow: a version already on npm is skipped only when npm's `gitHead` for it is the tagged commit. Otherwise `verify` and `publish` fail instead of creating a GitHub Release for code that is not on npm.
+## [0.13.0] - 2026-11-04
 
-## [0.11.0] - 2026-10-30
-
-First published release. It requires `@poli-page/sdk` `^0.11.0`, hence the version number. The `0.1.0` section that used to sit here was never released; its entries are merged below, and the **Breaking** markers describe changes against that unreleased code.
+First release on npm. It requires `@poli-page/sdk` 0.13 and passes the Poli Page API contract v0.13.0. The package shares its major.minor with the Poli Page API, so its first version is 0.13.0; a 0.11.0 was prepared and never published, and neither was the 0.1.0 development line. The **Breaking** markers describe changes against that unreleased code.
 
 ### Added
 
@@ -21,14 +18,15 @@ First published release. It requires `@poli-page/sdk` `^0.11.0`, hence the versi
 - Vitest project layout (`unit`, `integration-node`, `integration-edge`) with `tests/setup.ts` snapshotting `process.listeners('unhandledRejection' | 'uncaughtException')` to catch leaks.
 - Example Next 15 App Router app under `example-app/` covering the SDK surface with route handlers and a standalone CLI script, and an interactive dashboard at `/`.
 - Public surface frozen at five named exports plus matching option types and curated SDK type re-exports; an `index.test.ts` asserts no accidental surface widening.
-- Contract tests: CI runs the integration cases of the Poli Page API contract (v1.3.0) against the example app, built and served by a Next.js production server.
-- Release workflow: pushing a `vX.Y.Z` tag runs the checks, then publishes to npm with provenance (OIDC Trusted Publishing) after approval on the `npm-publish` environment, and creates the GitHub Release.
+- Contract tests: CI runs the integration cases of the Poli Page API contract v0.13.0 (`poli-page/api-contract`), including `impl.invalid-response`, against the example app, built and served by a Next.js production server.
+- Release workflow: pushing a `vX.Y.Z` tag runs the checks, then publishes to npm with provenance (OIDC Trusted Publishing) after approval on the `npm-publish` environment, and creates the GitHub Release. A version already on npm is skipped only when npm's `gitHead` for it is the tagged commit; otherwise `verify` and `publish` fail instead of creating a GitHub Release for code that is not on npm.
+- Release workflow: the tag's major.minor must be the pinned API contract's (a stable contract tag on the pinned commit, not the comment next to it; `release.yml` must pin the same commit as `ci.yml`) and the required `@poli-page/sdk`'s (`scripts/check-release-versions.sh`); the error names both versions.
 
 ### Changed
 
 - **Breaking:** `createPoliPageClient()` accepts API keys from any environment (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). It no longer throws on a key from an unknown environment (it used to accept only `pp_test_` / `pp_live_`): a key that does not match `pp_{environment}_{32 hex characters}` logs one warning per key (naming the expected format, showing no part of the key, not even its `pp_{environment}_` prefix) and the client starts anyway, leaving the API to answer `401 INVALID_API_KEY`. A missing or empty key still throws.
-- **Breaking:** requires `@poli-page/sdk` `^0.11.0`, the first SDK release with environment keys and no template versions. Render inputs no longer take `version`, and the `ProjectModeInput` type re-export is replaced by `RenderInput`.
-- **Breaking:** the route handler answers a `PoliPageError` with the SDK's `toPayload()` as is: `{ code, message, status, requestId }`, `Content-Type: application/json` (no `charset` parameter), and the payload's `status` as the HTTP status: the API's status, `503` for `network_error`, `504` for `timeout`, or `500` for an SDK error with no status, whose body now keeps `status: null` (it said `500`).
+- **Breaking:** requires `@poli-page/sdk` `^0.13.0` (`>=0.13.0 <0.14.0`), with environment keys and no template versions. Render inputs no longer take `version`, and the `ProjectModeInput` type re-export is replaced by `RenderInput`. With it, a 2xx from the API whose body is not JSON (usually from a proxy) raises `PoliPageError` with code `invalid_response`, which the route handler answers `502` (the error's own `status` keeps the 2xx); a `renderToFile()` that cannot write its file raises `io_error`, answered `500` with `"status": null`; and the PDF download is bounded by the `timeout` option (`POLI_PAGE_TIMEOUT`; the whole download for `render.pdf`, an idle timeout for `render.pdfStream`), failing with `DOWNLOAD_FAILED`.
+- **Breaking:** the route handler answers a `PoliPageError` with the SDK's `toPayload()` as is: `{ code, message, status, requestId }`, `Content-Type: application/json` (no `charset` parameter), and the payload's `status` as the HTTP status: the API's status, `503` for `network_error`, `504` for `timeout`, `502` for `invalid_response`, or `500` for an SDK error with no status, whose body now keeps `status: null` (it said `500`).
 - Example app: depends on this repository's package (`file:..`) and commits its lockfile; renders `getting-started/welcome` with a `pp_sandbox_…` key and no `version`; its error demo is now `GET /errors/not-found` (template `does-not-exist`, `404 TEMPLATE_NOT_FOUND`). The integration tests run only with a `pp_sandbox_…` key.
 
 ### Removed
@@ -44,5 +42,5 @@ First published release. It requires `@poli-page/sdk` `^0.11.0`, hence the versi
 - README: the Node.js requirement is `>=20.18.0`, as `engines` says.
 - Package `exports`: `require` now resolves the CommonJS type declarations (`dist/index.d.cts`). It resolved the ESM ones, so TypeScript with `node16` / `nodenext` module resolution typed a CommonJS consumer's import as ESM-only.
 
-[Unreleased]: https://github.com/poli-page/nextjs/compare/v0.11.0...HEAD
-[0.11.0]: https://github.com/poli-page/nextjs/releases/tag/v0.11.0
+[Unreleased]: https://github.com/poli-page/nextjs/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/poli-page/nextjs/releases/tag/v0.13.0

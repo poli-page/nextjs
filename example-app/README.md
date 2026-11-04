@@ -16,7 +16,7 @@ The demo renders the `getting-started` project's `welcome` template, which every
 
 ## Setup
 
-The app depends on the package in the parent directory (`"@poli-page/nextjs": "file:.."`) and on `@poli-page/sdk` `^0.11.0` from npm. Build the package first, then install the app:
+The app depends on the package in the parent directory (`"@poli-page/nextjs": "file:.."`) and on `@poli-page/sdk` `^0.13.0` from npm. Build the package first, then install the app:
 
 ```bash
 (cd .. && npm install && npm run build)
