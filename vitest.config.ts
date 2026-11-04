@@ -20,6 +20,11 @@ for (const path of [resolve(here, '../.env'), resolve(here, './.env')]) {
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      reporter: ['text-summary', 'lcov'],
+    },
     projects: [
       {
         test: {
