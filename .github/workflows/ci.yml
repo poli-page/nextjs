@@ -6,11 +6,13 @@ on:
 
 permissions:
   contents: read
-  # Allow codecov-action's tokenless (OIDC) upload on public repo.
-  id-token: write
 
 jobs:
   test:
+    # Allow codecov-action's tokenless (OIDC) upload on public repo.
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -54,6 +56,6 @@ jobs:
         with:
           files: ./coverage/lcov.info
           # OIDC auth — no CODECOV_TOKEN secret needed; requires id-token: write
-          # (set at the workflow level) and the repo to be enrolled at codecov.io.
+          # (set on the test job) and the repo to be enrolled at codecov.io.
           use_oidc: true
           fail_ci_if_error: false
