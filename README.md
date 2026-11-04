@@ -101,7 +101,7 @@ The no-arg form (`createPoliPageClient()`) keeps the client built from the curre
 | `documentRedirectResponse(url, options?)` | Build a 302 (or 308) to a presigned document URL. |
 | `PoliPageError` | Re-export of the SDK error class with `isAuthError()` / `isRateLimitError()` / `isValidationError()` / `isNetworkError()` predicates. |
 
-Full reference: [docs/api.md](docs/api.md).
+Full reference: the exports of [`src/index.ts`](src/index.ts) and their doc comments. The SDK underneath is documented at [docs.poli.page/reference/sdk](https://docs.poli.page/reference/sdk/).
 
 ## Errors
 
@@ -175,10 +175,12 @@ npm run dev
 
 ## Going further
 
-- `docs/edge.md` — Edge runtime: opt in with `export const runtime = 'edge'` and what stays portable. *(forthcoming)*
-- `docs/streaming.md` — Streaming large PDFs end-to-end with `client.render.pdfStream`. *(forthcoming)*
-- `docs/server-components.md` — Embedding rendered bytes from a Server Component. *(forthcoming)*
-- `docs/events.md` — Wiring `onRequest` / `onResponse` / `onRetry` hooks for observability. *(forthcoming)*
+- Edge runtime — opt in with `export const runtime = 'edge'`, and what stays portable (forthcoming `docs/edge.md`).
+- Streaming — large PDFs end-to-end with `client.render.pdfStream` (forthcoming `docs/streaming.md`).
+- Server Components — embedding rendered bytes from a Server Component (forthcoming `docs/server-components.md`).
+- Events — wiring `onRequest` / `onResponse` / `onRetry` hooks for observability (forthcoming `docs/events.md`).
+
+Until these land, the source under `src/` and the example app are the reference.
 
 ## Compatibility
 
