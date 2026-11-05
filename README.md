@@ -20,7 +20,7 @@
 
 ## About
 
-This package adapts [Poli Page](https://poli.page) to the Next.js App Router. You get a memoised SDK client that reads `POLI_PAGE_*` from `process.env`, a route handler factory that turns one async function into a `GET`/`POST` export with the right PDF headers, and response helpers (`pdfResponse`, `previewResponse`, `documentRedirectResponse`) you reach for when you keep your own handler signature. Everything in `src/` is Web-standards-only, so the same exports run on Node and on the Edge runtime.
+This package adapts [Poli Page](https://poli.page) to the Next.js App Router. You get a memoised SDK client that reads `POLI_PAGE_*` from `process.env`, a route handler factory that turns one async function into an App Router route handler export (`GET`, `POST` or any other method) with the right PDF headers, and response helpers (`pdfResponse`, `previewResponse`, `documentRedirectResponse`) you reach for when you keep your own handler signature. Everything in `src/` is Web-standards-only, so the same exports run on Node and on the Edge runtime.
 
 **When to use this:**
 
@@ -111,11 +111,11 @@ The no-arg form (`createPoliPageClient()`) keeps the client built from the curre
 | Symbol | Purpose |
 |---|---|
 | `createPoliPageClient(options?)` | Build (or return the memoised) SDK client from env or explicit options. |
-| `createPoliPageRouteHandler(handler, options?)` | Wrap an async handler into an App Router `GET`/`POST` export. |
+| `createPoliPageRouteHandler(handler, options?)` | Wrap an async handler into an App Router route handler export (`GET`, `POST`, any method). |
 | `pdfResponse(body, options?)` | Build a `Response` with PDF headers from bytes or a `ReadableStream`. |
 | `previewResponse(html)` | Build a `text/html; charset=utf-8` response for HTML previews. |
 | `documentRedirectResponse(url, options?)` | Build a 302 (or 308) to a presigned document URL. |
-| `PoliPageError` | Re-export of the SDK error class with `isAuthError()` / `isRateLimitError()` / `isValidationError()` / `isNetworkError()` predicates. |
+| `PoliPageError` | Type-only re-export of the SDK error class, for annotations. Import the class from `@poli-page/sdk` for `instanceof` and its `isAuthError()` / `isRateLimitError()` / `isValidationError()` / `isNetworkError()` predicates. |
 
 Full reference: [API](https://poli-page.github.io/nextjs/reference/api/) on the documentation site, which covers every export of [`src/index.ts`](src/index.ts). The SDK underneath is documented at [poli-page.github.io/sdk-node](https://poli-page.github.io/sdk-node/).
 
