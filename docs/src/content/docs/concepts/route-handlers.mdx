@@ -1,6 +1,6 @@
 ---
 title: Route handlers
-description: How createPoliPageRouteHandler wraps an async function into an App Router GET or POST export, what it may return and where it runs.
+description: How createPoliPageRouteHandler wraps an async function into an App Router route handler (GET, POST...), what it may return and where it runs.
 ---
 
 `createPoliPageRouteHandler` is the integration's main entry point. You give it an async function, and it returns an App Router handler with the `(req, ctx)` signature Next.js calls: it reads the route params, builds the client, runs your function and turns its result into a `Response`.
