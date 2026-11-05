@@ -4,8 +4,15 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    # Allow codecov-action's tokenless (OIDC) upload on public repo.
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,7 +46,16 @@ jobs:
       - name: API contract
         id: contract
         uses: poli-page/api-contract@1f705b3ce3e15ff56e2f7b8249c1a2983af2312c # v0.13.0
-      - name: Test
-        run: npm test
+      - name: Test (with coverage)
+        run: npm run test:coverage
         env:
           POLI_CONTRACT: ${{ steps.contract.outputs.path }}
+      - name: Upload coverage to Codecov
+        if: matrix.node == 22 && matrix.next == 15
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage/lcov.info
+          # OIDC auth — no CODECOV_TOKEN secret needed; requires id-token: write
+          # (set on the test job) and the repo to be enrolled at codecov.io.
+          use_oidc: true
+          fail_ci_if_error: false

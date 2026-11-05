@@ -9,7 +9,7 @@ const restrictedNodeApis = [
 
 export default [
   {
-    ignores: ['dist/', 'example-app/', 'node_modules/'],
+    ignores: ['dist/', 'example-app/', 'node_modules/', 'coverage/', 'docs/'],
   },
   {
     files: ['src/**/*.ts'],

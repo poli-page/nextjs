@@ -1,0 +1,54 @@
+---
+title: Responses
+description: The pdfResponse, previewResponse and documentRedirectResponse helpers, their headers and the RFC 5987 filename encoding.
+---
+
+Three helpers build a `Response` for the cases a Poli Page route needs. The route handler factory uses them for its `kind` results; you call them yourself when you keep your own handler signature, such as a hand-written `GET(req)` export.
+
+## PDF
+
+`pdfResponse(body, options?)` takes bytes (`Uint8Array` or `ArrayBuffer`) or a `ReadableStream<Uint8Array>` and answers `200` with `Content-Type: application/pdf`.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `filename` | none | The download name. Without it, `Content-Disposition` is just `attachment` (or `inline`). |
+| `inline` | `false` | `true` shows the PDF in the browser (`inline`) instead of downloading it (`attachment`). |
+| `cacheControl` | `no-store, private` | The `Cache-Control` value. |
+
+The response also carries `X-Content-Type-Options: nosniff`. With a filename, `Content-Disposition` follows RFC 6266 and RFC 8187. Control characters are stripped. An ASCII name becomes a quoted `filename="…"`, with `\` and `"` escaped. A non-ASCII name gets the dual form: an ASCII fallback in `filename="…"` (each non-ASCII character becomes `_`) plus `filename*=UTF-8''…`, percent-encoded.
+
+## Streamed PDF
+
+Give `pdfResponse` the stream from `client.render.pdfStream(...)`, or return it from a route handler as a bare `ReadableStream` or `{ kind: 'stream' }`. The body then streams to the client with backpressure.
+
+The route handler reads the stream up to its first chunk before it builds the response, so an error raised before any byte, such as `DOWNLOAD_FAILED`, is answered like any other error. An error after the first chunk aborts the response, so a truncated PDF never looks complete. `pdfResponse` on its own does not read ahead.
+
+## HTML preview
+
+`previewResponse(html, options?)` answers `200` with `Content-Type: text/html; charset=utf-8`, `Cache-Control` set by `cacheControl` (default `no-store, private`) and `X-Content-Type-Options: nosniff`.
+
+## Redirect to a stored document
+
+`documentRedirectResponse(url, options?)` answers `302` with a `Location` header and `Cache-Control: no-store, private`. With `{ permanent: true }` it answers `308`. The URL is usually `documents.get(id).presignedPdfUrl`, which is valid for 15 minutes, so do not make the redirect permanent or cacheable.
+
+## Example
+
+```ts
+// app/documents/[id]/preview/route.ts: your own handler signature
+import { createPoliPageClient, previewResponse } from '@poli-page/nextjs'
+
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const { id } = await ctx.params
+  const client = createPoliPageClient()
+  const result = await client.documents.preview(id)
+  return previewResponse(result.html)
+}
+```
+
+## See also
+- [Route handlers](../route-handlers/)
+- [Errors](../../production/errors/)
+- [API reference](../../reference/api/)

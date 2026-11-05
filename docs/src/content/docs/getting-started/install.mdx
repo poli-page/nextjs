@@ -1,0 +1,66 @@
+---
+title: Install
+description: Install @poli-page/nextjs and @poli-page/sdk, and set your API key for a Next.js App Router app.
+---
+
+The Next.js integration ships as `@poli-page/nextjs` on npm. It wraps the Node.js SDK, `@poli-page/sdk`, with a memoised client factory, a route handler factory and response helpers for the App Router. There is nothing to register: you install the packages, set the key and import what you need in a `route.ts`.
+
+## Requirements
+
+- Node.js `>=20.18.0`
+- Next.js `>=13.4.0`, App Router only
+- `@poli-page/sdk` `^0.13.0`, the same minor as this package
+- TypeScript `>=5.4` is optional, but the public types assume it
+- A Poli Page API key, from [poli.page/dashboard](https://poli.page/dashboard)
+
+CI tests Node 20 and 22 against Next.js 14 and 15. The package ships ESM and CJS builds and runs in the Node and Edge runtimes. The Pages Router is not supported.
+
+## Install the packages
+
+```bash
+npm install @poli-page/nextjs @poli-page/sdk
+```
+
+## Set your API key
+
+Next.js loads the project-root `.env` for you:
+
+```bash
+# .env
+POLI_PAGE_API_KEY=pp_sandbox_xxx
+```
+
+A key is `pp_{env}_{32 lowercase hex}`, where `{env}` is the environment it belongs to. The key alone selects the environment, so a render never names a version:
+
+| Environment | Key | Watermark | Counted |
+| --- | --- | --- | --- |
+| `sandbox` (every org) | `pp_sandbox_…` | yes | no |
+| `live` (every org, deletable on Pro+) | `pp_live_…` | no | yes |
+| created on Pro+ (e.g. `staging`) | `pp_staging_…` | no | yes |
+
+"Counted" means the render counts toward the organization's monthly PDF quota.
+
+## Check it works
+
+Next.js has no per-app smoke-test command. Start your app with `next dev` and open a route that renders, or run the example app in the repo's [`example-app/`](https://github.com/poli-page/nextjs/tree/main/example-app).
+
+## Example
+
+```ts
+// app/welcome/[name]/route.ts
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+
+export const GET = createPoliPageRouteHandler<{ name: string }>(async ({ client, params }) => ({
+  kind: 'pdf',
+  bytes: await client.render.pdf({
+    project: 'getting-started',
+    template: 'welcome',
+    data: { name: params.name },
+  }),
+  filename: `welcome-${params.name}.pdf`,
+}))
+```
+
+## See also
+- [Quick start](../quick-start/)
+- [Configuration](../../concepts/configuration/)

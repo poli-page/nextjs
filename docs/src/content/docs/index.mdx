@@ -1,0 +1,18 @@
+---
+title: Poli Page Next.js integration
+description: Render Poli Page documents from Next.js App Router route handlers with @poli-page/nextjs.
+template: splash
+hero:
+  tagline: Render Poli Page documents from Next.js App Router route handlers.
+  actions:
+    - { text: Quick start, link: /nextjs/getting-started/quick-start/, icon: rocket }
+    - { text: API reference, link: /nextjs/reference/api/, icon: open-book }
+---
+
+import { CardGrid, Card } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Quick start" icon="rocket">Return a PDF from a route.ts handler in one function.</Card>
+  <Card title="Concepts" icon="puzzle">Client configuration, route handlers, PDF and preview responses.</Card>
+  <Card title="API reference" icon="open-book">Every export of `@poli-page/nextjs`, on one page.</Card>
+</CardGrid>

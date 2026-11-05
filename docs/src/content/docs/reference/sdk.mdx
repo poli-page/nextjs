@@ -1,0 +1,22 @@
+---
+title: SDK
+description: The Node.js SDK under @poli-page/nextjs, and where its documentation lives.
+---
+
+`@poli-page/nextjs` wraps the Poli Page Node.js SDK, [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk). The `client` that `createPoliPageClient()` returns and the one your route handler receives are the SDK's own `PoliPage` objects, so the SDK's documentation covers every method and type they have.
+
+→ **Node.js SDK documentation**: https://poli-page.github.io/sdk-node/
+
+## Versions
+
+The integration requires `@poli-page/sdk` `^0.13.0`, the same major.minor as the package itself: both share the major.minor of the Poli Page API.
+
+| `@poli-page/nextjs` | `@poli-page/sdk` | Next.js | Node |
+| --- | --- | --- | --- |
+| `0.13.x` | `0.13.x` | `>=13.4.0` (App Router); CI runs 14 and 15 | `>=20.18.0` |
+
+## Where to look
+
+- Render input, render methods and stored documents: the SDK's [Quick start](https://poli-page.github.io/sdk-node/getting-started/quick-start/) and [Client](https://poli-page.github.io/sdk-node/reference/client/) pages.
+- Retries, timeouts and cancellation: the SDK's [Retries and idempotency](https://poli-page.github.io/sdk-node/production/retries-and-idempotency/) page.
+- Every error code: the SDK's [Errors](https://poli-page.github.io/sdk-node/production/errors/) page.

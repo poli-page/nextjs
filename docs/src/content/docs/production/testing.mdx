@@ -1,0 +1,76 @@
+---
+title: Testing
+description: Test Next.js route handlers that render with Poli Page by passing a fake client, with no network call.
+---
+
+Every route handler reaches the API through one client, and `createPoliPageRouteHandler` accepts it as an option. In tests you pass a fake client and call the exported handler as a plain function, so your route runs without a network call and without Next.js running.
+
+## Pass a fake client
+
+Set `{ client: fake }` in the handler options. The fake needs only the methods your function calls, cast to `PoliPage` (a type exported by this package). A route that reads its client from the environment instead needs a fake in the options of that route, or a key in the environment and a stubbed `fetch`.
+
+## Call the handler
+
+The handler has the signature `(req: Request, ctx: { params: Promise<TParams> }) => Promise<Response>`. Build a `Request`, pass `{ params: Promise.resolve({ ... }) }`, and assert on the `Response`: its status, headers and body.
+
+## Fake an error
+
+Make a fake method reject with `new PoliPageError(message, code, status, requestId)` from `@poli-page/sdk`. The handler answers it as in production, so you can assert the JSON body and the status.
+
+## Example
+
+```ts
+// app/invoices/[number]/route.test.ts
+import { describe, expect, it, vi } from 'vitest'
+import { createPoliPageRouteHandler, type PoliPage } from '@poli-page/nextjs'
+import { PoliPageError } from '@poli-page/sdk'
+
+const pdf = vi.fn()
+const fakeClient = { render: { pdf } } as unknown as PoliPage
+
+const GET = createPoliPageRouteHandler<{ number: string }>(
+  async ({ client, params }) => ({
+    kind: 'pdf',
+    bytes: await client.render.pdf({
+      project: 'billing',
+      template: 'invoice',
+      data: { invoiceNumber: params.number },
+    }),
+    filename: `invoice-${params.number}.pdf`,
+  }),
+  { client: fakeClient },
+)
+
+const call = (number: string) =>
+  GET(new Request(`http://localhost/invoices/${number}`), {
+    params: Promise.resolve({ number }),
+  })
+
+describe('GET /invoices/[number]', () => {
+  it('answers the PDF with its headers', async () => {
+    pdf.mockResolvedValue(new TextEncoder().encode('%PDF-1.4'))
+    const res = await call('INV-001')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="invoice-INV-001.pdf"')
+  })
+
+  it('answers a PoliPageError as JSON', async () => {
+    pdf.mockRejectedValue(
+      new PoliPageError('Template not found', 'TEMPLATE_NOT_FOUND', 404, 'req_1'),
+    )
+    const res = await call('INV-002')
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({
+      code: 'TEMPLATE_NOT_FOUND',
+      message: 'Template not found',
+      status: 404,
+      requestId: 'req_1',
+    })
+  })
+})
+```
+
+## See also
+- [Route handlers](../../concepts/route-handlers/)
+- [Errors](../errors/)

@@ -1,0 +1,74 @@
+---
+title: Errors
+description: How the route handler answers PoliPageError as JSON, the status mapping, and how to handle errors yourself in Next.js.
+---
+
+The SDK raises a single `PoliPageError` class. `createPoliPageRouteHandler` catches it and answers with a typed JSON response, so a failed render never becomes an unhandled 500 with a stack trace.
+
+## The error
+
+`PoliPageError` comes from `@poli-page/sdk`. This package re-exports it as a type only, so import the class from the SDK when you need `instanceof` or a constructor. It carries `code`, `status`, `requestId` and these predicates:
+
+- `isAuthError()`: HTTP 401 or 403.
+- `isRateLimitError()`: HTTP 429, after the SDK's own retries.
+- `isValidationError()`: HTTP 400.
+- `isNetworkError()`: DNS, connection, TLS or timeout failures, with no `status`.
+
+Two more codes you may meet: `invalid_response` (a 2xx whose body is not JSON, usually from a proxy) and `io_error` (`renderToFile` cannot write its file).
+
+## What the handler answers
+
+The handler answers the SDK's `err.toPayload()` as the JSON body, with `Content-Type: application/json` and `Cache-Control: no-store, private`:
+
+```json
+{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
+```
+
+| Error | HTTP status | Body `status` |
+| --- | --- | --- |
+| API error (4xx, 5xx) | the API's status | the API's status |
+| `network_error` | `503` | `503` |
+| `timeout` | `504` | `504` |
+| `invalid_response` | `502` | `502` |
+| SDK error with no status (such as `aborted`, `io_error`, `DOWNLOAD_FAILED`) | `500` | `null` |
+
+`requestId` is the API's `x-request-id`, or `null` when there is none. Anything that is not a `PoliPageError` bubbles to Next.js as usual.
+
+A stream result is read up to its first chunk before the response is built, so an error raised before any byte is answered the same way. An error after the first chunk aborts the response.
+
+## Handle errors yourself
+
+Two options on the handler give you control:
+
+- `onError(err, ctx)` runs first, for every error, with the same context as your function. Return a `Response` to use it as the answer. Return nothing to continue.
+- `handleErrors: false` turns the JSON answer off. A `PoliPageError` is then rethrown and Next.js answers it like any other error, for example through your `error.tsx` boundary or its own 500.
+
+You can also catch a specific error inside your function and return your own `Response`.
+
+## Example
+
+```ts
+// app/invoices/[id]/route.ts
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+import { PoliPageError } from '@poli-page/sdk'
+
+export const GET = createPoliPageRouteHandler(async ({ client }) => {
+  try {
+    return await client.render.pdf({
+      project: 'billing',
+      template: 'invoice',
+      data: { invoiceNumber: 'INV-001' },
+    })
+  } catch (err) {
+    if (err instanceof PoliPageError && err.isRateLimitError()) {
+      return new Response('Slow down', { status: 429, headers: { 'Retry-After': '60' } })
+    }
+    throw err
+  }
+})
+```
+
+## See also
+- [Route handlers](../../concepts/route-handlers/)
+- [Responses](../../concepts/responses/)
+- [Testing](../testing/)

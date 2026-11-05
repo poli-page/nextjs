@@ -1,0 +1,143 @@
+---
+title: API
+description: Every export of @poli-page/nextjs, its signature and its behavior, on one page.
+---
+
+This page lists the whole public surface of `@poli-page/nextjs`: the exports of [`src/index.ts`](https://github.com/poli-page/nextjs/blob/main/src/index.ts). The SDK methods behind `render` and `documents` are documented on the [Node.js SDK site](../sdk/).
+
+## createPoliPageClient
+
+```ts
+function createPoliPageClient(options?: PoliPageClientOptions): PoliPage
+```
+
+- With no argument, it reads the `POLI_PAGE_*` variables and returns the memoised client for the current environment configuration. It throws `POLI_PAGE_API_KEY is not set. Pass apiKey: explicitly or set the env var.` when the key is missing or empty.
+- With an argument, it builds a new client every time. `apiKey` falls back to `POLI_PAGE_API_KEY`, and it throws `apiKey is required.` when neither is non-empty. The other options fall back to their variables, then to the SDK's defaults.
+- A key that is not `pp_{environment}_{32 lowercase hex}` logs one warning per distinct key, without showing any part of it, and the client starts.
+
+See [Configuration](../../concepts/configuration/).
+
+## PoliPageClientOptions
+
+```ts
+interface PoliPageClientOptions {
+  apiKey?: string
+  baseUrl?: string
+  maxRetries?: number
+  retryDelay?: number
+  timeout?: number
+  onRequest?: (e: RequestEvent) => void
+  onResponse?: (e: ResponseEvent) => void
+  onRetry?: (e: RetryEvent) => void
+  onError?: (err: PoliPageError) => void
+}
+```
+
+Every option that is set is passed to the SDK's `PoliPage` constructor. The numeric variables are ignored when they are not positive numbers.
+
+## createPoliPageRouteHandler
+
+```ts
+function createPoliPageRouteHandler<TParams = Record<string, string>>(
+  handler: (ctx: RouteHandlerContext<TParams>) => Promise<RouteHandlerResult>,
+  options?: RouteHandlerOptions<TParams>,
+): (req: Request, ctx: { params: Promise<TParams> }) => Promise<Response>
+```
+
+Awaits `ctx.params`, picks the client (`options.client`, else `createPoliPageClient()`), runs `handler` and builds the `Response` from its result. If `handler` throws, `options.onError` runs first and a `Response` it returns is used. Otherwise a `PoliPageError` is answered as JSON unless `handleErrors` is `false`; any other error is rethrown.
+
+See [Route handlers](../../concepts/route-handlers/) and [Errors](../../production/errors/).
+
+## RouteHandlerContext
+
+```ts
+interface RouteHandlerContext<TParams> {
+  req: Request
+  params: TParams
+  client: PoliPage
+}
+```
+
+## RouteHandlerResult
+
+```ts
+type RouteHandlerResult =
+  | Uint8Array
+  | ArrayBuffer
+  | ReadableStream<Uint8Array>
+  | { kind: 'pdf'; bytes: Uint8Array | ArrayBuffer; filename?: string; inline?: boolean }
+  | { kind: 'stream'; stream: ReadableStream<Uint8Array>; filename?: string; inline?: boolean }
+  | { kind: 'preview'; html: string }
+  | { kind: 'redirect'; url: string; permanent?: boolean }
+  | Response
+```
+
+A stream, bare or in `{ kind: 'stream' }`, is read up to its first chunk before the response is built.
+
+## RouteHandlerOptions
+
+```ts
+interface RouteHandlerOptions<TParams = Record<string, string>> {
+  client?: PoliPage
+  onError?: (err: unknown, ctx: RouteHandlerContext<TParams>) => Response | void
+  handleErrors?: boolean
+}
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `client` | `createPoliPageClient()` | The SDK client to use for this route. |
+| `onError` | none | Runs for every error `handler` throws, before the default handling. A returned `Response` is the answer. |
+| `handleErrors` | `true` | Answer a `PoliPageError` as JSON. `false` rethrows it. |
+
+## pdfResponse
+
+```ts
+function pdfResponse(
+  body: Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>,
+  options?: PdfResponseOptions,
+): Response
+
+interface PdfResponseOptions {
+  filename?: string
+  inline?: boolean
+  cacheControl?: string
+}
+```
+
+Answers `200` with `Content-Type: application/pdf`, `Cache-Control` (default `no-store, private`), `X-Content-Type-Options: nosniff` and a `Content-Disposition` of `attachment` or, with `inline: true`, `inline`, plus the filename when given. See [Responses](../../concepts/responses/).
+
+## previewResponse
+
+```ts
+function previewResponse(html: string, options?: PreviewResponseOptions): Response
+
+interface PreviewResponseOptions {
+  cacheControl?: string
+}
+```
+
+Answers `200` with `Content-Type: text/html; charset=utf-8`, `Cache-Control` (default `no-store, private`) and `X-Content-Type-Options: nosniff`.
+
+## documentRedirectResponse
+
+```ts
+function documentRedirectResponse(
+  presignedUrl: string,
+  options?: DocumentRedirectOptions,
+): Response
+
+interface DocumentRedirectOptions {
+  permanent?: boolean
+}
+```
+
+Answers `302`, or `308` with `permanent: true`, with `Location` set to the URL and `Cache-Control: no-store, private`.
+
+## Re-exported SDK types
+
+```ts
+export type { PoliPage, PoliPageError, PoliPageOptions, RenderInput, RetryEvent } from '@poli-page/sdk'
+```
+
+These are type-only re-exports: there is no runtime value, so `instanceof PoliPageError` and `new PoliPageError(...)` need the import from `@poli-page/sdk`.

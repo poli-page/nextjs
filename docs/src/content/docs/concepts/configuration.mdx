@@ -1,0 +1,55 @@
+---
+title: Configuration
+description: The POLI_PAGE_* environment variables and the options createPoliPageClient reads, and how the memoised client treats them.
+---
+
+You configure the client through environment variables, through options passed to `createPoliPageClient`, or both. Explicit options always win over the environment.
+
+## Environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `POLI_PAGE_API_KEY` | — | Required: a missing or empty key throws. A key that does not match `pp_{environment}_{32 lowercase hex characters}` logs one warning that names the expected format and shows no part of the key, and the client starts anyway: the API decides whether the key is valid (`401 INVALID_API_KEY`). |
+| `POLI_PAGE_BASE_URL` | SDK default | Override the API host. |
+| `POLI_PAGE_TIMEOUT` | SDK default | Per-request timeout in milliseconds. It also bounds the PDF download: the whole download for `render.pdf`, the wait for each chunk for `render.pdfStream`. A download that outlasts it fails with `DOWNLOAD_FAILED` (no status, so the error handler answers `500`), not `timeout`. |
+| `POLI_PAGE_MAX_RETRIES` | SDK default | Maximum retry attempts on retryable failures. |
+| `POLI_PAGE_RETRY_DELAY` | SDK default | Base delay between retries, in milliseconds. |
+
+A numeric variable that is not a positive number is ignored, and the SDK default applies.
+
+## Options
+
+`createPoliPageClient(options)` takes `PoliPageClientOptions`:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `apiKey` | `POLI_PAGE_API_KEY` | The API key. Throws `apiKey is required.` when neither the option nor the variable gives a non-empty one. |
+| `baseUrl` | `POLI_PAGE_BASE_URL` | Override the API host. |
+| `timeout` | `POLI_PAGE_TIMEOUT` | Per-request timeout in milliseconds. |
+| `maxRetries` | `POLI_PAGE_MAX_RETRIES` | Maximum retry attempts. |
+| `retryDelay` | `POLI_PAGE_RETRY_DELAY` | Base retry delay in milliseconds. |
+| `onRequest` / `onResponse` / `onRetry` / `onError` | — | Lifecycle callbacks passed through to the SDK. See [Observability](../../production/observability/). |
+
+An option you leave out falls back to its variable, then to the SDK's own default.
+
+## The memoised client
+
+The no-argument form, `createPoliPageClient()`, reads the environment and keeps the client it built. It reuses that client while the five `POLI_PAGE_*` values are unchanged, and builds a new one when any of them changes. A missing key throws `POLI_PAGE_API_KEY is not set. Pass apiKey: explicitly or set the env var.`
+
+Passing options bypasses the memo: every call with options builds a new client. Build such a client once, in a module, and import it.
+
+## Example
+
+```ts
+// lib/poli-page.ts
+import { createPoliPageClient } from '@poli-page/nextjs'
+
+export const poliPage = createPoliPageClient({
+  timeout: 30_000,
+  maxRetries: 3,
+})
+```
+
+## See also
+- [Client access](../client-access/)
+- [API reference](../../reference/api/)

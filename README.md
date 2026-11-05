@@ -1,6 +1,22 @@
 # @poli-page/nextjs
 
+[![Npm](https://img.shields.io/npm/v/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Npm)](https://www.npmjs.com/package/@poli-page/nextjs)
+[![Downloads](https://img.shields.io/npm/dm/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Downloads)](https://www.npmjs.com/package/@poli-page/nextjs)
+[![Ci](https://img.shields.io/github/actions/workflow/status/poli-page/nextjs/ci.yml?branch=main&style=flat&logo=githubactions&logoColor=ffffff&label=Ci)](https://github.com/poli-page/nextjs/actions/workflows/ci.yml)
+[![Codeql](https://img.shields.io/github/actions/workflow/status/poli-page/nextjs/codeql.yml?branch=main&style=flat&logo=github&logoColor=ffffff&label=Codeql)](https://github.com/poli-page/nextjs/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/poli-page/nextjs/main?style=flat&logo=codecov&logoColor=ffffff&label=Coverage)](https://codecov.io/gh/poli-page/nextjs)
+[![Node](https://img.shields.io/node/v/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Node)](https://nodejs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14%20%7C%2015-blue?style=flat&logo=nextdotjs&logoColor=ffffff)](https://nextjs.org/)
+[![Types](https://img.shields.io/npm/types/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Types)](https://www.npmjs.com/package/@poli-page/nextjs)
+[![Install size](https://img.shields.io/npm/unpacked-size/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Install%20size)](https://www.npmjs.com/package/@poli-page/nextjs)
+[![Bundle](https://img.shields.io/bundlephobia/minzip/@poli-page/nextjs?style=flat&logo=nodedotjs&logoColor=ffffff&label=Bundle)](https://bundlephobia.com/package/@poli-page/nextjs)
+[![Deps](https://img.shields.io/badge/Deps-up%20to%20date-brightgreen?style=flat&logo=nodedotjs&logoColor=ffffff)](https://github.com/poli-page/nextjs/network/dependencies)
+[![Docs](https://img.shields.io/badge/Docs-online-brightgreen?style=flat&logo=readthedocs&logoColor=ffffff)](https://poli-page.github.io/nextjs/)
+[![License](https://img.shields.io/npm/l/@poli-page/nextjs?style=flat&logo=gnu&logoColor=ffffff&label=License)](LICENSE)
+
 > Render Poli Page documents from Next.js App Router route handlers.
+
+→ **Documentation**: https://poli-page.github.io/nextjs/
 
 ## About
 
@@ -101,7 +117,7 @@ The no-arg form (`createPoliPageClient()`) keeps the client built from the curre
 | `documentRedirectResponse(url, options?)` | Build a 302 (or 308) to a presigned document URL. |
 | `PoliPageError` | Re-export of the SDK error class with `isAuthError()` / `isRateLimitError()` / `isValidationError()` / `isNetworkError()` predicates. |
 
-Full reference: the exports of [`src/index.ts`](src/index.ts) and their doc comments. The SDK underneath is documented at [docs.poli.page/reference/sdk](https://docs.poli.page/reference/sdk/).
+Full reference: [API](https://poli-page.github.io/nextjs/reference/api/) on the documentation site, which covers every export of [`src/index.ts`](src/index.ts). The SDK underneath is documented at [poli-page.github.io/sdk-node](https://poli-page.github.io/sdk-node/).
 
 ## Errors
 
@@ -175,12 +191,13 @@ npm run dev
 
 ## Going further
 
-- Edge runtime — opt in with `export const runtime = 'edge'`, and what stays portable (forthcoming `docs/edge.md`).
-- Streaming — large PDFs end-to-end with `client.render.pdfStream` (forthcoming `docs/streaming.md`).
-- Server Components — embedding rendered bytes from a Server Component (forthcoming `docs/server-components.md`).
-- Events — wiring `onRequest` / `onResponse` / `onRetry` hooks for observability (forthcoming `docs/events.md`).
+The [documentation site](https://poli-page.github.io/nextjs/) goes into each topic in depth:
 
-Until these land, the source under `src/` and the example app are the reference.
+- [Route handlers](https://poli-page.github.io/nextjs/concepts/route-handlers/): what a handler returns, and opting a route into the Edge runtime with `export const runtime = 'edge'`.
+- [Responses](https://poli-page.github.io/nextjs/concepts/responses/): PDFs, streaming large PDFs end-to-end with `client.render.pdfStream`, HTML previews and document redirects.
+- [Client access](https://poli-page.github.io/nextjs/concepts/client-access/): the client in route handlers, server actions and Server Components.
+- [Observability](https://poli-page.github.io/nextjs/production/observability/): the `onRequest` / `onResponse` / `onRetry` / `onError` hooks.
+- [Testing](https://poli-page.github.io/nextjs/production/testing/): calling a route handler with a fake client.
 
 ## Compatibility
 
@@ -192,7 +209,9 @@ Pages Router is not supported. The package ships dual ESM + CJS and runs in both
 
 ## Contributing
 
-`npm run typecheck`, `npm run lint`, `npm run build` and `npm test` are what CI runs.
+`npm run typecheck`, `npm run lint`, `npm run build` and `npm run test:coverage` (the test suite with a coverage report, uploaded to Codecov) are what CI runs. CodeQL scans the code on every push and pull request to `main`, and weekly.
+
+The documentation site lives in [`docs/`](docs/), an Astro Starlight site on the shared Poli Page docs preset (vendored in `docs/src/preset/`). Build it with `npm ci && npm run build` in `docs/`: the build fails when a page is missing or breaks the page rules. The Docs workflow deploys it to GitHub Pages when a push to `main` changes it.
 
 Releases are cut by pushing a `vX.Y.Z` tag; see [RELEASING.md](RELEASING.md).
 

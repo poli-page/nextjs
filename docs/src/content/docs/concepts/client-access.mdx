@@ -1,0 +1,67 @@
+---
+title: Client access
+description: Reach the Poli Page SDK client from route handlers, server actions and Server Components with the memoised factory or a shared instance.
+---
+
+The integration has no module or provider to inject. You reach the SDK client in one of three ways, and all three give you the SDK's own `PoliPage` object.
+
+## In a route handler
+
+`createPoliPageRouteHandler` passes the client to your function as `client`. By default it calls `createPoliPageClient()`, so it uses the memoised client built from the environment. Pass `{ client }` in the options to use your own instance for that route.
+
+## From the factory
+
+Call `createPoliPageClient()` anywhere on the server, such as a server action or a Server Component, to get the memoised client. It reads `process.env`, so it must run on the server. See [Configuration](../configuration/) for what it reads and when it rebuilds.
+
+## A shared instance
+
+When you need options, such as timeouts or callbacks, build the client once in a module with `createPoliPageClient(options)` and import it where you need it. Options bypass the memo, so a module-level constant is what keeps it to one client.
+
+## Example
+
+```ts
+// lib/poli-page.ts
+import { createPoliPageClient } from '@poli-page/nextjs'
+
+export const poliPage = createPoliPageClient({ timeout: 30_000 })
+```
+
+```ts
+// app/invoices/[number]/route.ts: a shared instance in one route
+import { createPoliPageRouteHandler } from '@poli-page/nextjs'
+import { poliPage } from '@/lib/poli-page'
+
+export const GET = createPoliPageRouteHandler<{ number: string }>(
+  async ({ client, params }) => ({
+    kind: 'pdf',
+    bytes: await client.render.pdf({
+      project: 'billing',
+      template: 'invoice',
+      data: { invoiceNumber: params.number },
+    }),
+  }),
+  { client: poliPage },
+)
+```
+
+```ts
+// app/actions.ts: the memoised client in a server action
+'use server'
+
+import { createPoliPageClient } from '@poli-page/nextjs'
+
+export async function storeInvoice(invoiceNumber: string) {
+  const client = createPoliPageClient()
+  const doc = await client.render.document({
+    project: 'billing',
+    template: 'invoice',
+    data: { invoiceNumber },
+  })
+  return doc.documentId
+}
+```
+
+## See also
+- [Configuration](../configuration/)
+- [Responses](../responses/)
+- [Testing](../../production/testing/)
