@@ -4,6 +4,11 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the minimum Node.js version is now 22.12.0 (was 20.18.0). Node 20 reached end of life on 2026-04-30, and Vitest 5 needs Node 22.12 or later. CI now tests Node 22 and 24 (was 20 and 22).
+- The tests run on Vitest 5. No effect on the published package.
+
 ## [0.13.0] - 2026-11-04
 
 First release on npm. It requires `@poli-page/sdk` 0.13 and passes the Poli Page API contract v0.13.0. The package shares its major.minor with the Poli Page API, so its first version is 0.13.0; a 0.11.0 was prepared and never published, and neither was the 0.1.0 development line. The **Breaking** markers describe changes against that unreleased code.
