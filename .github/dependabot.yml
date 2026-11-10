@@ -6,6 +6,10 @@ updates:
       interval: weekly
     labels:
       - dependencies
+    ignore:
+      # TypeScript 7: @typescript-eslint 8 peers typescript <6.1. Lift once it supports 7.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: npm
     directory: /example-app
@@ -13,6 +17,10 @@ updates:
       interval: weekly
     labels:
       - dependencies
+    ignore:
+      # TypeScript 7: @typescript-eslint 8 peers typescript <6.1. Lift once it supports 7.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
