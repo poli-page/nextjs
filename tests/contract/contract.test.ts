@@ -35,10 +35,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // ---------------------------------------------------------------------------
-// Contract format 1 (README of poli-page/api-contract)
+// Contract format 2 (README of poli-page/api-contract)
 // ---------------------------------------------------------------------------
 
-const KNOWN_FORMAT_VERSION = 1
+const KNOWN_FORMAT_VERSION = 2
 
 /** The example app's key: a well-formed sandbox key, `pp_sandbox_` + 32 hex. */
 const TEST_API_KEY = 'pp_sandbox_0123456789abcdef0123456789abcdef'
