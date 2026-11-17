@@ -1,7 +1,13 @@
 version: 2
 updates:
+  # One npm entry for both packages. The root library and example-app both
+  # depend on @poli-page/sdk; bumping it in only one of them installs two SDK
+  # copies and breaks the example-app build (nominal PoliPage type mismatch).
+  # group-by: dependency-name makes each bump one PR across both directories.
   - package-ecosystem: npm
-    directory: /
+    directories:
+      - /
+      - /example-app
     schedule:
       interval: weekly
     labels:
@@ -10,17 +16,11 @@ updates:
       # TypeScript 7: @typescript-eslint 8 peers typescript <6.1. Lift once it supports 7.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
-
-  - package-ecosystem: npm
-    directory: /example-app
-    schedule:
-      interval: weekly
-    labels:
-      - dependencies
-    ignore:
-      # TypeScript 7: @typescript-eslint 8 peers typescript <6.1. Lift once it supports 7.
-      - dependency-name: typescript
-        update-types: ['version-update:semver-major']
+    groups:
+      npm-across-directories:
+        patterns:
+          - '*'
+        group-by: dependency-name
 
   - package-ecosystem: github-actions
     directory: /
