@@ -37,7 +37,7 @@ This package adapts [Poli Page](https://poli.page) to the Next.js App Router. Yo
 
 - Node.js `>=22.12.0`
 - Next.js `>=13.4.0` (App Router)
-- [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk) `^0.13.0` (installed with the package), the same minor as this package
+- [`@poli-page/sdk`](https://www.npmjs.com/package/@poli-page/sdk) `^0.15.0` (installed with the package), the same minor as this package
 - TypeScript `>=5.4` (optional, but the public types assume it)
 
 ## Install
@@ -203,7 +203,8 @@ The [documentation site](https://poli-page.github.io/nextjs/) goes into each top
 
 | Package | `@poli-page/sdk` | Next.js | Node |
 |---|---|---|---|
-| `0.13.x` | `0.13.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=22.12.0` (`22` / `24`) |
+| `0.15.x` | `0.15.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=22.12.0` (`22` / `24`) |
+| `0.13.x` | `0.13.x` | `>=13.4.0` (App Router); CI runs `^14` and `^15` | `>=20.18.0` (`20` / `22`) |
 
 Pages Router is not supported. The package ships dual ESM + CJS and runs in both the Node and Edge runtimes.
 

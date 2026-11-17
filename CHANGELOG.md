@@ -4,8 +4,14 @@ All notable changes to `@poli-page/nextjs` are documented here. Format follows [
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-17
+
+Requires `@poli-page/sdk` 0.15 (`^0.15.0`, `>=0.15.0 <0.16.0`) and passes the Poli Page API contract v0.15.0. There is no 0.14: the package shares its major.minor with the Poli Page API and had nothing to ship for that minor.
+
 ### Changed
 
+- **Breaking:** requires `@poli-page/sdk` `^0.15.0` (was `^0.13.0`), in `package.json` and the example app.
+- Contract tests: CI runs the integration cases of the Poli Page API contract v0.15.0 (was v0.13.0). Its integration cases are unchanged.
 - **Breaking:** the minimum Node.js version is now 22.12.0 (was 20.18.0). Node 20 reached end of life on 2026-04-30, and Vitest 5 needs Node 22.12 or later. CI now tests Node 22 and 24 (was 20 and 22).
 - The tests run on Vitest 5. No effect on the published package.
 
@@ -47,5 +53,6 @@ First release on npm. It requires `@poli-page/sdk` 0.13 and passes the Poli Page
 - README: the Node.js requirement is `>=20.18.0`, as `engines` says.
 - Package `exports`: `require` now resolves the CommonJS type declarations (`dist/index.d.cts`). It resolved the ESM ones, so TypeScript with `node16` / `nodenext` module resolution typed a CommonJS consumer's import as ESM-only.
 
-[Unreleased]: https://github.com/poli-page/nextjs/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/poli-page/nextjs/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/poli-page/nextjs/compare/v0.13.0...v0.15.0
 [0.13.0]: https://github.com/poli-page/nextjs/releases/tag/v0.13.0
