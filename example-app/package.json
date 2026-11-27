@@ -13,12 +13,12 @@
     "@poli-page/nextjs": "file:..",
     "@poli-page/sdk": "^0.15.0",
     "next": "^16.4.6",
-    "react": "^18.0.0",
+    "react": "^19.3.1",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "@types/react": "^18.0.0",
+    "@types/react": "^19.3.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
   }
